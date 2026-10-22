@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Launcher configuration. Edit this file, then run launcher/build-and-install.sh.
+  Or leave it and push a theme instead: tools/theme.sh themes/<name> puts a config.json (same keys, see
+  themes/README.md) and an optional wallpaper on the TV, and the launcher overlays it at start.
+  Package names: on the TV run `pm list packages` (tools/tv.py 'pm list packages').
+
+  Everything personal lives here and nowhere else: no name, pincode, IP or package list is hardcoded
+  in the code. The setup questions in PROMPT.md fill these in; each step can be skipped.
+-->
+<resources>
+
+    <!-- Apps pinned to the dock row at the bottom, in this order. Missing apps are skipped. -->
+    <string-array name="dock_apps">
+        <item>com.netflix.ninja</item>
+        <item>com.amazon.amazonvideo.livingroom</item>
+        <item>com.google.android.youtube.tv</item>
+        <item>in.startv.hotstar</item>
+    </string-array>
+
+    <!-- Apps never shown as tiles (e.g. the Live TV app, which the Inputs menu already covers). -->
+    <string-array name="hidden_apps">
+        <item>com.mediatek.wwtv.tvcenter</item>
+        <item>com.mitv.gallery</item>
+    </string-array>
+
+    <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
+    <string name="live_tv_package" translatable="false">com.mediatek.wwtv.tvcenter</string>
+
+    <!-- Some TVs give their Live TV app no leanback entry point at all, so `live_tv_package` above
+         resolves to nothing (TCL Android TV 9 on China-market sets is one). This action is then sent
+         to that package instead, and the app starts normally. Leave empty to omit. -->
+    <string name="live_tv_action" translatable="false"></string>
+
+    <!-- TVs with no TvInputManager have no HDMI list to read, but their own source-selection panel
+         still switches inputs (TCL Android TV 9 again). When nothing could be listed, the Inputs menu
+         offers one row that starts this service: component first, then action. Leave empty to omit. -->
+    <string name="source_panel_service" translatable="false"></string>
+    <string name="source_panel_action" translatable="false"></string>
+
+    <!-- Inputs menu: HDMI and AV rows normally open with ACTION_VIEW on the input's channel URI, which the
+         Live TV app handles. Where nothing answers that, this action is sent with the same URI instead
+         (XGIMI projectors: com.xgimi.action.hdmiPlayer). Leave empty to omit. -->
+    <string name="input_action" translatable="false"></string>
+
+    <!-- Show the Solar Hijri (Shamsi) date used in Iran and Afghanistan, e.g. "27 Mehr 1405", above the
+         Gregorian date. -->
+    <bool name="shamsi_date">false</bool>
+    <!-- Optional VPN app the network pill opens (hold the pill for Wi-Fi settings), e.g. the package of the
+         VPN you use. Empty: the pill opens Wi-Fi settings. The green VPN badge shows for any VPN either way;
+         with an app set here, a red "VPN off" badge also shows while no VPN is up. -->
+    <string name="vpn_app" translatable="false"></string>
+    <!-- Grid rows left visible under the dock on the home screen. 0 = dock sits at the very bottom. -->
+    <integer name="rows_below_dock">0</integer>
+
+    <!-- Tiles per row in the grid; the dock always has this many slots. Tiles are 180dp wide at 4 columns and
+         shrink to fit from 5 up (about 144dp at 5, 117dp at 6 on a 1080p TV). -->
+    <integer name="columns">4</integer>
+
+    <!-- "Default home" tile that opens Android's home-screen picker, for TVs whose settings have one
+         (most Android TVs don't; the tile only appears when the page exists). Off by default. -->
+    <bool name="show_home_settings_shortcut">false</bool>
+
+    <!-- Module cards: an app that declares a card (the module-card contract in README.md) can stand in for its tile with its own
+         label, caption and glow colour, once you answer Show on the prompt. false: never look for cards or ask. -->
+    <bool name="module_cards">true</bool>
+
+    <!-- ===== Personalisation (asked during setup; every step can be skipped) ===== -->
+
+    <!-- The name in the home greeting and in the welcome splash, e.g. "Sam". Empty: the greeting
+         stays the time-of-day word and the splash says just "Welcome back". -->
+    <string name="greeting_name" translatable="false"></string>
+
+    <!-- ===== Wallpaper ===== -->
+
+    <!-- Show a wallpaper behind the home screen. false: the plain black background, no pictures at all. -->
+    <bool name="use_wallpaper">true</bool>
+
+    <!-- Seconds each wallpaper is on screen before the slow crossfade to the next. Only used when the
+         assets folder holds more than one picture. -->
+    <integer name="wallpaper_interval_seconds">30</integer>
+
+    <!-- The wallpapers live in launcher/app/src/main/assets/wallpapers/ as wall-01.jpg … wall-10.jpg
+         (tools/set-images.sh puts them there, resized to at most 1920x1080 JPEG). One picture: a still
+         wallpaper. Several: they rotate. None: pitch black. -->
+
+    <!-- ===== Screensaver ===== -->
+
+    <!-- The screensaver shows the launcher's own wallpapers, one after the other with a slow crossfade,
+         and the time and the date drifting over them (the WallpaperDream service). The TV's screensaver
+         setting has to point at it: com.gathin.tvhome/.WallpaperDream. false: the screensaver shows the
+         clock on black. -->
+    <bool name="screensaver_enabled">true</bool>
+
+    <!-- Seconds each wallpaper is on screen in the screensaver before the next one fades in. -->
+    <integer name="screensaver_interval_seconds">30</integer>
+
+    <!-- ===== Welcome splash ===== -->
+
+    <!-- Show the welcome splash once per boot, before the home screen. -->
+    <bool name="splash_enabled">true</bool>
+
+    <!-- The message on the splash. %s is replaced with the name from greeting_name; with no name only the
+         text before %s is shown. -->
+    <string name="splash_message" translatable="false">Welcome back %s</string>
+
+    <!-- How long the splash is held, in milliseconds, before it fades into the home screen.
+         Any remote key skips it. -->
+    <integer name="splash_duration_ms">4000</integer>
+
+    <!-- How far the message sits above the bottom edge, as a percentage of the screen height. 8 = 8%. -->
+    <integer name="splash_text_bottom_percent">8</integer>
+
+    <!-- Where the message sits horizontally: center, left or right. -->
+    <string name="splash_text_align" translatable="false">center</string>
+
+    <!-- The splash picture is launcher/app/src/main/assets/splash/splash.jpg. When it is missing or cannot
+         be decoded the splash is skipped silently. The Android boot logo and boot animation are never
+         touched: that needs root. -->
+
+    <!-- ===== Weather ===== -->
+
+    <!-- Show the weather pill next to Inputs / Wi-Fi / Settings. -->
+    <bool name="weather_enabled">true</bool>
+
+    <!-- The pincode the coordinates below were looked up from; kept for reference and not sent anywhere
+         at run time. The lookup itself happens once, during setup, with OpenStreetMap Nominatim. -->
+    <string name="weather_pincode" translatable="false"></string>
+
+    <!-- Latitude and longitude of the place above, filled in by tools/pincode-to-coords.py at setup.
+         Run time only ever talks to Open-Meteo, which needs no key and no lookup. -->
+    <string name="weather_lat" translatable="false"></string>
+    <string name="weather_lon" translatable="false"></string>
+
+    <!-- Country code for the place above, used by the pincode lookup. India by default. -->
+    <string name="weather_country" translatable="false">IN</string>
+
+    <!-- ===== Live TV (the optional app in apps/live-tv) ===== -->
+
+    <!-- The Live TV app is opt-in and independent of this launcher: it is never required for the debloat
+         or for the launcher, and it is not in the dock. When it is installed it is pinned as the first
+         tile of the grid, right under the dock, so it is easy to find. -->
+    <bool name="live_tv_enabled">true</bool>
+
+    <!-- The package of that app. The one in apps/live-tv is com.gathin.livetv. -->
+    <string name="live_tv_app_package" translatable="false">com.gathin.livetv</string>
+
+    <!-- The languages whose iptv-org playlists the Live TV app loads. Only these are downloaded.
+         The same list is in apps/live-tv/app/src/main/res/values/config.xml, and the app can change
+         its own languages later from its settings screen. -->
+    <string-array name="live_tv_languages">
+        <item>tel</item>
+        <item>hin</item>
+        <item>eng</item>
+    </string-array>
+</resources>
