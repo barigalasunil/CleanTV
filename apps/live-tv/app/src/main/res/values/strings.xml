@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Live TV</string>
+
+    <!-- The channel list -->
+    <string name="loading">Loading channels…</string>
+    <string name="channel_count">%1$d channels</string>
+    <string name="updated_at">Updated %1$s</string>
+    <string name="not_updated_yet">Not downloaded yet</string>
+    <string name="load_failed">The channels could not be loaded: %1$s</string>
+    <string name="load_failed_short">Could not load</string>
+    <!-- The three buttons in the top bar of the channel list. -->
+    <string name="refresh_channels">Refresh channels</string>
+    <string name="exit">Exit</string>
+
+    <!-- The settings screen -->
+    <string name="settings">Settings</string>
+    <string name="save">Save</string>
+    <string name="close">Close</string>
+    <string name="languages">Languages</string>
+    <string name="refresh_every">Download again every %1$d hours</string>
+    <string name="clear_cache">Clear the cached channels</string>
+    <string name="cache_cleared">The cached channels are gone. They come back on the next refresh.</string>
+    <string name="cached_channels">%1$d channels are cached</string>
+
+    <!-- The player -->
+    <string name="no_stream">This channel has no stream address.</string>
+    <string name="play_failed">This channel did not start: %1$s</string>
+</resources>

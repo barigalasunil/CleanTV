@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The text on the buttons: dark on the focused button, the app's own text colour otherwise. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true" android:color="#FF201A0A" />
+    <item android:color="@color/text_primary" />
+</selector>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="background">#FF0B0B10</color>
+    <color name="surface">#FF1C1C26</color>
+    <color name="accent">#FFE8A33D</color>
+    <color name="text_primary">#FFF3F3F6</color>
+    <color name="text_secondary">#FF9AA0AA</color>
+    <color name="focus_ring">#FFE8A33D</color>
+</resources>

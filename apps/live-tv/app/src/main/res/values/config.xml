@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Live TV app's own configuration. It is independent of the launcher: the launcher only decides
+  whether the app is pinned as a tile, and it never needs this file to work.
+-->
+<resources>
+
+    <!-- The languages the app loads on a fresh install, from the iptv-org playlists. The app can change
+         them later from its own settings screen; what is picked there wins. -->
+    <string-array name="live_tv_languages">
+        <item>tel</item>
+        <item>hin</item>
+        <item>eng</item>
+    </string-array>
+</resources>
