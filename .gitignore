@@ -1,0 +1,34 @@
+# Your own pictures and your TV's dumps stay local
+personal-assets/
+backup/
+
+# The docs folder is not published
+docs/
+
+# Screenshots are tracked: screenshots/ is deliberately not ignored
+
+# Python virtualenv, caches and compiled files
+tools/venv/
+**/__pycache__/
+*.pyc
+
+# ADB keys made by tools/tv.py
+tools/adbkey
+tools/adbkey.pub
+
+# Gradle and Android build output
+.gradle/
+**/build/
+local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# Editors and OS files
+.idea/
+*.iml
+.vscode/
+*.log
+Thumbs.db
+.DS_Store
