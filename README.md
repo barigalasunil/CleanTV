@@ -7,8 +7,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Gathin23/cleanyourtv/stargazers"><img src="https://img.shields.io/github/stars/Gathin23/cleanyourtv?style=flat&color=cfffcf&labelColor=15181e" alt="Stars"></a>
-  <a href="https://github.com/Gathin23/cleanyourtv/pulls?q=is%3Amerged"><img src="https://img.shields.io/github/issues-pr-closed/Gathin23/cleanyourtv?style=flat&label=merged%20PRs&color=cfffcf&labelColor=15181e" alt="Merged PRs"></a>
+  <a href="https://github.com/barigalasunil/CleanTV"><img src="https://img.shields.io/github/stars/barigalasunil/CleanTV?style=flat&color=cfffcf&labelColor=15181e" alt="Stars"></a>
+  <a href="https://github.com/barigalasunil/CleanTV/pulls?q=is%3Amerged"><img src="https://img.shields.io/github/issues-pr-closed/barigalasunil/CleanTV?style=flat&label=merged%20PRs&color=cfffcf&labelColor=15181e" alt="Merged PRs"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-cfffcf?style=flat&labelColor=15181e" alt="MIT"></a>
   <a href="https://buymeacoffee.com/gathint"><img src="https://img.shields.io/badge/support-%E2%9D%A4-ff5e8a?style=flat&labelColor=15181e" alt="Support, buy me a coffee"></a>
 </p>
@@ -23,6 +23,38 @@ and a one-line restore if you change your mind.**
 >
 > [@gathint, 17 October 2026](https://x.com/gathint/status/2111379569030939102). The replies are where
 > most of the TV lists here came from. The repo was called tv-vibehack until the 19th; old links work.
+
+## What the original project gives you
+
+These come from [tv-vibehack](https://github.com/Gathin23/tv-vibehack) by [@Gathin23](https://github.com/Gathin23).
+
+| Feature | What it gives you |
+|---|---|
+| **ADB debloat over Wi-Fi** | Disables the manufacturer's telemetry, ads and preloaded apps with `pm disable-user`; nothing is uninstalled. |
+| **Backup and restore** | The prompt records the package list and settings first; the restore script re-enables every disabled package and puts the stock launcher back. |
+| **tvOS-style launcher** | A pitch-black home with a dock of your four favourite apps, a top shelf, the app grid and a floating glass highlight. |
+| **Glowing focus and frosted pills** | An ambient glow in the focused app's colour, plus Inputs, Wi-Fi or Ethernet and Settings buttons. |
+| **Clock and clock screensaver** | A thin clock, the date and a drifting clock screensaver in Outfit. |
+| **Themes** | Change colours, wallpaper, dock and columns from a `config.json`, without rebuilding. |
+| **Module cards** | Other TV apps can offer their own tile, only after you approve it. |
+| **Per-TV lists** | Ready-made debloat lists for the models in [`examples/`](examples/), grouped and commented. |
+| **A quieter TV** | No sponsored rows, no "Discover" nags and no analytics phoning home. |
+
+## What I added on top
+
+| Feature | What it gives you |
+|---|---|
+| **Welcome splash** | A picture with your name, shown once per boot and skipped by any key. |
+| **Personal greeting name** | Your name in the home greeting and the splash. |
+| **Wallpaper rotation** | Several wallpapers behind the tiles, with a slow crossfade. |
+| **Weather pill from a pincode** | The current temperature and sky icon, looked up from the coordinates for your pincode. |
+| **Adaptive text contrast** | The clock, greeting, date and buttons switch between light and dark to stay readable on every picture. |
+| **Wallpaper screensaver** | The same wallpapers in the screensaver, with the time and date drifting over them. |
+| **App grid reordering** | Hold OK on a tile, move it with the D-pad, OK drops it; the dock stays fixed. |
+| **Live TV app** | An optional Media3 player with channels grouped by language, filtered by the languages you pick. |
+| **First-connection helper** | [`tools/connect.sh`](tools/connect.sh) waits for the TV and explains an unauthorised, offline or wrong address instead of hanging. |
+| **Image tools** | [`tools/set-images.sh`](tools/set-images.sh) scales your wallpapers and splash picture into the APK, and [`tools/pincode-to-coords.py`](tools/pincode-to-coords.py) looks up the weather coordinates. |
+| **Personalisation questions** | The setup questions in [`PROMPT.md`](PROMPT.md) ask for your name, pincode, wallpapers and splash picture. |
 
 ## How it works
 
@@ -40,7 +72,12 @@ before touching anything you might use.
 ## Quick start
 
 You need a computer on the same Wi-Fi as the TV and a coding assistant with shell access
-(Claude Code or similar).
+(Claude Code or similar). Clone this repository first:
+
+```bash
+git clone https://github.com/barigalasunil/CleanTV.git
+cd CleanTV
+```
 
 | | |
 |---|---|
@@ -50,24 +87,6 @@ You need a computer on the same Wi-Fi as the TV and a coding assistant with shel
 
 The assistant backs up, debloats, builds and installs the launcher, and checks each step with
 screenshots pulled from the TV. With this repo as context it takes about fifteen minutes.
-
-## What you get
-
-- **A pitch-black home** with a dock of your four favourite apps in a rounded band, where Apple TV puts it.
-- **A top shelf** naming the focused app in large type, with an ambient glow in a colour taken from its artwork.
-- **The rest of your apps in a grid** that slides up when you press Down.
-- **One floating glass highlight** that springs from tile to tile. The focused tile lifts and shows its name.
-- **Three frosted buttons**: Inputs (HDMI ports, AV, Live TV), Wi-Fi or Ethernet with the network name, Settings.
-- **A greeting, a thin clock and the date** in [Outfit](https://fonts.google.com/specimen/Outfit), and a **screensaver** that shows either a drifting clock or your wallpapers with the time over them.
-- **Your name in the greeting**, and a **welcome splash once per boot** with your name on it.
-- **Wallpapers behind the tiles**, one picture or several that rotate with a slow crossfade, and **text that reads on all of them**: the clock, the greeting and the buttons turn dark over a bright picture and light over a dark one.
-- **A weather pill** next to the buttons: the current temperature and a small icon for the sky.
-- **A grid you can rearrange**: hold OK on a tile, move it with the D-pad, OK drops it there.
-- **Themes** that change colours, wallpaper, dock and columns without a rebuild, and **module cards** that let other apps plug a tile in, only with your say-so.
-- **An optional Live TV app**: a small Media3 player with thousands of channels, pinned as the first tile of the grid.
-
-And a TV that stops working against you: no sponsored rows, no "Discover" nags, no analytics
-phoning home, no apps you never asked for.
 
 ## Supported TVs
 
@@ -274,6 +293,13 @@ The three that bit us most:
 - **macOS blocks `adb connect`** ("No route to host") under Local Network privacy. `tools/tv.py` avoids the binary.
 - **Disable the stock launcher only after the new one is installed and running**, or Home lands on a factory test app. The install script orders this for you.
 - **On Google TV the setup wizard** (`com.google.android.tungsten.setupwraith`) can take Home and crash-loop the system after the stock launcher is disabled. Disable it too, and list it in your `debloat.txt` so restore brings it back. Stuck already? `tools/tv.py 'pm enable --user 0 com.google.android.apps.tv.launcherx'`.
+
+## If the coding agent seems stuck
+
+- **Normal on a first TV connection**: the TV shows an "Allow USB debugging?" popup. Tap **Allow** with **"Always allow"**.
+- **If nothing has happened for about 30 to 60 seconds**, press **Esc** (or **Ctrl+C**) to interrupt, then type `continue`.
+- The agent keeps its context, so it picks up where it stopped.
+- **If it repeats the same step**, tell it: "Stop. Show me the last command and its output, then wait."
 
 ## Questions people ask
 

@@ -6,6 +6,18 @@ OnePlus, Realme, Nvidia Shield and most others). It will not work on Samsung Tiz
 Fire TV. If you cloned this repo, mention that: the assistant can reuse `tools/` and `launcher/`
 instead of writing them from scratch, and only needs to edit `launcher/.../values/config.xml`.
 
+## Working rules for the agent
+
+Follow these for the whole session:
+
+- Run every shell command with a timeout, and never wait silently for longer than 60 seconds.
+- Before each step print one short status line saying what is about to happen and whether I need to do anything on the TV.
+- After I do something on the TV, re-check the device state immediately and continue by yourself, without waiting for me to type "continue".
+- If the same step fails twice, stop, show me the command and its output, and ask. Do not retry in a loop.
+- For long builds, show only the last 20 lines of output.
+- If a command has produced no output for 2 minutes, say so and ask whether to keep waiting.
+- Do not start new features or edit unrelated files without asking.
+
 Before you start, on the TV: Settings → Device Preferences → About → press OK on "Build" 7 times,
 then go back → Developer options → turn on USB debugging (and Network/ADB debugging if your TV
 shows it). Keep the TV on. Some boxes cut power to their USB port while USB debugging is on, so a
