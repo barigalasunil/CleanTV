@@ -130,9 +130,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private int weatherTries;
     /** The last weather reading, kept so an offline refresh can leave it on screen, dimmed. */
     private Weather.Report weatherReport;
-    private View contentRow;
+    private LinearLayout contentRow;
     private View weatherPanel;
     private WeatherPanel weatherCard;
+    private View nowPlayingView;
+    private NowPlayingCard nowPlayingCard;
+    /** The player updates the card, never the other way around. */
+    private final MediaNoteService.Listener mediaListener = now -> {
+        if (nowPlayingCard == null) return;
+        nowPlayingCard.bind(now);
+        updateContentNavigation();
+    };
     /** Whether the weather is wanted at all (res/values/config.xml, weather_enabled). */
     private boolean weatherEnabled;
     /** Whole seconds since the shared home ticker started. */
@@ -383,6 +391,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         contentRow = findViewById(R.id.contentRow);
         weatherPanel = findViewById(R.id.weatherPanel);
         weatherCard = new WeatherPanel(this);
+        nowPlayingView = findViewById(R.id.nowPlayingCard);
+        nowPlayingCard = new NowPlayingCard(this, this::updateContentRow);
         btnRam = findViewById(R.id.btnRam);
         btnStorage = findViewById(R.id.btnStorage);
         btnNetwork = findViewById(R.id.btnNetwork);
@@ -411,8 +421,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // The weather shelf: shown when coordinates are known or a reading is already cached.
         Weather.Report known = weatherEnabled ? Weather.cached(this) : null;
         boolean showPanel = weatherEnabled && (!Double.isNaN(weatherLat) || known != null);
-        contentRow.setVisibility(showPanel ? View.VISIBLE : View.GONE);
-        updateContentNavigation();
+        weatherPanel.setVisibility(showPanel ? View.VISIBLE : View.GONE);
+        updateContentRow();
         if (showPanel) {
             if (known != null) showWeather(known);
             else weatherCard.loading(null);
@@ -495,17 +505,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         weatherReport = report;
         weatherTries = 0;
         handler.removeCallbacks(weatherRetry);
-        contentRow.setVisibility(View.VISIBLE);
-        updateContentNavigation();
+        weatherPanel.setVisibility(View.VISIBLE);
+        updateContentRow();
         weatherCard.bind(report, false);
     }
 
-    /** Weather shown in the shelf only exists when it can actually be shown. */
+    /** Weather or music can appear on their own; the shelf exists while either one does. */
+    private void updateContentRow() {
+        boolean weather = weatherPanel.getVisibility() == View.VISIBLE;
+        boolean media = nowPlayingView.getVisibility() == View.VISIBLE;
+        contentRow.setVisibility(weather || media ? View.VISIBLE : View.GONE);
+        contentRow.setGravity(media && !weather ? Gravity.END : Gravity.START);
+        updateContentNavigation();
+    }
+
+    /** The top row drops into the first shelf item that exists, or into the grid when there is none. */
     private void updateContentNavigation() {
-        int down = contentRow.getVisibility() == View.VISIBLE ? R.id.weatherPanel : R.id.grid;
+        boolean weather = weatherPanel.getVisibility() == View.VISIBLE;
+        boolean media = nowPlayingView.getVisibility() == View.VISIBLE;
+        int down = weather ? R.id.weatherPanel : (media ? R.id.nowPrevious : R.id.grid);
         btnRam.setNextFocusDownId(down);
         btnStorage.setNextFocusDownId(down);
         btnNetwork.setNextFocusDownId(down);
+        weatherPanel.setNextFocusRightId(media ? R.id.nowPrevious : View.NO_ID);
+        grid.setNextFocusUpId(weather ? R.id.weatherPanel : (media ? R.id.nowPrevious : View.NO_ID));
     }
 
     /**
@@ -669,6 +692,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         InfoPill.update(this, btnStorage, InfoPill.STORAGE);
         InfoPill.update(this, btnNetwork, InfoPill.NETWORK);
         handler.postDelayed(homeTicker, TICK_MS);
+        MediaNoteService.addListener(mediaListener);
     }
 
     /** Rebuilds the tiles (and the module cards), then puts focus back where it was. */
@@ -741,6 +765,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onPause();
         unregisterReceiver(packageReceiver);
         handler.removeCallbacks(homeTicker);
+        MediaNoteService.removeListener(mediaListener);
         // Nothing of ours stays on screen over another app; an undecided prompt simply returns next time.
         if (cardPrompt != null) cardPrompt.dismiss();
         if (openPopup != null) openPopup.dismiss();

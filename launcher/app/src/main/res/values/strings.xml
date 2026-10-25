@@ -39,6 +39,13 @@
     <string name="weather_last_reading">Last reading</string>
     <string name="weather_updating">Updating…</string>
     <string name="weather_unavailable">Weather unavailable</string>
+    <string name="now_playing">Now playing</string>
+    <string name="now_playing_service">Now playing</string>
+    <string name="media_previous">Previous</string>
+    <string name="media_next">Next</string>
+    <string name="media_play">Play</string>
+    <string name="media_pause">Pause</string>
+    <string name="media_art">Album art for %1$s</string>
     <string name="move_hint">Move: OK to place · Back to cancel</string>
     <string name="tile_move">Move</string>
     <string name="tile_hide">Hide from home</string>

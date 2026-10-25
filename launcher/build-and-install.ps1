@@ -70,6 +70,7 @@ Write-Host $out
 if ("$out" -match 'Error') { throw 'could not set the new launcher as home; the stock launcher was left untouched' }
 @(
     'pm grant com.gathin.tvhome android.permission.ACCESS_FINE_LOCATION 2>/dev/null; echo location-granted',
+    'cmd notification allow_listener com.gathin.tvhome/com.gathin.tvhome.MediaNoteService 2>/dev/null; echo media-access-granted',
     'cmd package compile -m speed -f com.gathin.tvhome',
     "am start -W -n com.gathin.tvhome/.MainActivity | grep -E '^(Status|Error)'",
     $disableStock,
