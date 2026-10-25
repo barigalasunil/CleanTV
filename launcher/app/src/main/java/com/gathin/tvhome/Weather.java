@@ -15,6 +15,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,6 +50,17 @@ final class Weather {
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
+    /** Sunrise and sunset for one day, in the TV's local time. */
+    static final class Sun {
+        final LocalTime sunrise;
+        final LocalTime sunset;
+
+        Sun(LocalTime sunrise, LocalTime sunset) {
+            this.sunrise = sunrise;
+            this.sunset = sunset;
+        }
+    }
+
     /** One day of the forecast. */
     static final class Day {
         final int index;
@@ -56,14 +69,19 @@ final class Weather {
         final double max;
         final double min;
         final int rainChance;
+        final LocalTime sunrise;
+        final LocalTime sunset;
 
-        Day(int index, LocalDate date, int code, double max, double min, int rainChance) {
+        Day(int index, LocalDate date, int code, double max, double min, int rainChance,
+            LocalTime sunrise, LocalTime sunset) {
             this.index = index;
             this.date = date;
             this.code = code;
             this.max = max;
             this.min = min;
             this.rainChance = rainChance;
+            this.sunrise = sunrise;
+            this.sunset = sunset;
         }
 
         String label(Context ctx) {
@@ -101,6 +119,17 @@ final class Weather {
             this.day = day;
             this.at = at;
             this.days = Collections.unmodifiableList(days);
+        }
+
+        /** Sunrise and sunset for the date, or null when this reading did not carry them. */
+        Sun sunFor(LocalDate date) {
+            for (Day day : days) {
+                if (day.date.equals(date)) {
+                    if (day.sunrise == null || day.sunset == null) return null;
+                    return new Sun(day.sunrise, day.sunset);
+                }
+            }
+            return null;
         }
 
         /** True when the reading is old enough that it must not look live. */
@@ -211,7 +240,7 @@ final class Weather {
     private static String fetch(double lat, double lon) {
         String url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon
                 + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,is_day,weather_code"
-                + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
+                + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset"
                 + "&forecast_days=5&timezone=auto&wind_speed_unit=kmh";
         HttpURLConnection conn = null;
         try {
@@ -265,16 +294,30 @@ final class Weather {
         JSONArray max = daily.optJSONArray("temperature_2m_max");
         JSONArray min = daily.optJSONArray("temperature_2m_min");
         JSONArray rain = daily.optJSONArray("precipitation_probability_max");
+        JSONArray sunrise = daily.optJSONArray("sunrise");
+        JSONArray sunset = daily.optJSONArray("sunset");
         for (int i = 0; i < dates.length() && days.size() < 5; i++) {
             try {
                 LocalDate date = LocalDate.parse(dates.getString(i));
                 days.add(new Day(days.size(), date, intAt(codes, i, 0), doubleAt(max, i, 0),
-                        doubleAt(min, i, 0), intAt(rain, i, -1)));
+                        doubleAt(min, i, 0), intAt(rain, i, -1),
+                        timeAt(sunrise, i), timeAt(sunset, i)));
             } catch (Exception ignored) {
                 // A day the API could not date is simply left out of the five.
             }
         }
         return days;
+    }
+
+    private static LocalTime timeAt(JSONArray array, int index) {
+        if (array == null || index >= array.length()) return null;
+        Object v = array.opt(index);
+        if (!(v instanceof String)) return null;
+        try {
+            return LocalDateTime.parse((String) v).toLocalTime();
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private static double doubleAt(JSONArray array, int index, double fallback) {

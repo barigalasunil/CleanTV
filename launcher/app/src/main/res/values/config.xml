@@ -118,6 +118,28 @@
          be decoded the splash is skipped silently. The Android boot logo and boot animation are never
          touched: that needs root. -->
 
+    <!-- ===== Day / night theme ===== -->
+
+    <!-- auto follows sunrise and sunset from the weather; day or night pins the palette. When there is
+         no weather yet, the fixed times below are used. -->
+    <string name="theme_mode" translatable="false">auto</string>
+    <string name="theme_day_start" translatable="false">06:00</string>
+    <string name="theme_night_start" translatable="false">18:30</string>
+
+    <!-- The soft warm colour behind the launcher in daylight. The night background is black. -->
+    <string name="theme_day_background" translatable="false">#F3EFE8</string>
+
+    <!-- How much wallpapers are dimmed at night: 1 = unchanged, 0.6 = noticeably darker. -->
+    <string name="theme_night_dim" translatable="false">0.6</string>
+
+    <!-- Minutes the empty-day palette takes to cross into night, and the warm dawn/dusk blend. -->
+    <integer name="theme_transition_minutes">30</integer>
+
+    <!-- Follow the palette in the screensaver, and use assets/wallpapers/day and /night when both
+         folders have pictures. -->
+    <bool name="theme_apply_to_screensaver">true</bool>
+    <bool name="theme_use_phase_wallpapers">true</bool>
+
     <!-- ===== Weather ===== -->
 
     <!-- Show the weather pill next to Inputs / Wi-Fi / Settings. -->
