@@ -198,8 +198,8 @@ final class Config {
             splashBottom = integer(json, "splash_text_bottom_percent", splashBottom, 0, 60);
             splashAlign = string(json, "splash_text_align", splashAlign);
             weatherEnabled = bool(json, "weather_enabled", weatherEnabled);
-            weatherLat = number(string(json, "weather_lat", String.valueOf(weatherLat)), weatherLat);
-            weatherLon = number(string(json, "weather_lon", String.valueOf(weatherLon)), weatherLon);
+            weatherLat = coordinate(json, "weather_lat", weatherLat);
+            weatherLon = coordinate(json, "weather_lon", weatherLon);
             liveTvEnabled = bool(json, "live_tv_enabled", liveTvEnabled);
             liveTvApp = string(json, "live_tv_app_package", liveTvApp);
             liveTvLanguages = stringList(json, "live_tv_languages", liveTvLanguages);
@@ -245,6 +245,14 @@ final class Config {
         } catch (NumberFormatException e) {
             return fallback;
         }
+    }
+
+    /** A coordinate written as a JSON number (the usual case) or as a string. */
+    private static double coordinate(JSONObject o, String key, double fallback) {
+        Object v = o.opt(key);
+        if (v instanceof Number) return ((Number) v).doubleValue();
+        if (v instanceof String) return number((String) v, fallback);
+        return fallback;
     }
 
     /** Reads and parses the overlay; any problem means "no overlay", never a crash on the home screen. */

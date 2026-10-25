@@ -96,7 +96,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView greeting;
     private TextView btnInputs;
     private TextView btnWifi;
-    private TextView btnWeather;
     private TextView btnSettings;
     private TextView btnRam;
     private TextView btnStorage;
@@ -129,8 +128,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private double weatherLat = Double.NaN, weatherLon = Double.NaN;
     /** How many times the weather has been asked for since the last reading came in. */
     private int weatherTries;
-    /** The last weather reading, kept for the colour of the pill. */
+    /** The last weather reading, kept so an offline refresh can leave it on screen, dimmed. */
     private Weather.Report weatherReport;
+    private View contentRow;
+    private View weatherPanel;
+    private WeatherPanel weatherCard;
     /** Whether the weather is wanted at all (res/values/config.xml, weather_enabled). */
     private boolean weatherEnabled;
     /** Whole seconds since the shared home ticker started. */
@@ -175,9 +177,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         public void onAvailable(@NonNull Network network) {
             handler.post(() -> {
                 updateWifiLabel();
-                // The network is here now, so the weather that could not be looked up at boot is asked for again.
-                if (btnWeather != null && btnWeather.getVisibility() != View.VISIBLE) {
+                // The network is here now, so a missing or stale reading is asked for again.
+                if (weatherEnabled && (weatherReport == null || weatherReport.stale())) {
                     weatherTries = 0;
+                    if (weatherReport == null && weatherCard != null) weatherCard.loading(null);
                     refreshWeather();
                 }
             });
@@ -377,7 +380,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         btnInputs = findViewById(R.id.btnInputs);
         btnSettings = findViewById(R.id.btnSettings);
-        btnWeather = findViewById(R.id.btnWeather);
+        contentRow = findViewById(R.id.contentRow);
+        weatherPanel = findViewById(R.id.weatherPanel);
+        weatherCard = new WeatherPanel(this);
         btnRam = findViewById(R.id.btnRam);
         btnStorage = findViewById(R.id.btnStorage);
         btnNetwork = findViewById(R.id.btnNetwork);
@@ -391,7 +396,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             open(new Intent(Settings.ACTION_WIFI_SETTINGS));
             return true;
         });
-        btnWeather.setOnClickListener(v -> refreshWeather());
+        weatherPanel.setOnClickListener(v -> {
+            if (!weatherEnabled || Double.isNaN(weatherLat) || Double.isNaN(weatherLon)) return;
+            weatherTries = 0;
+            refreshWeather();
+        });
         btnSettings.setOnClickListener(v -> open(new Intent(Settings.ACTION_SETTINGS)));
         btnSettings.setOnLongClickListener(v -> {
             if (!moduleCards) return false;   // off: a long press does nothing, as before the feature
@@ -399,10 +408,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return true;
         });
 
-        // The weather pill: hidden until there is something to show.
-        if (cfg.weatherEnabled && !Double.isNaN(weatherLat)) {
-            Weather.Report known = Weather.cached(this);
+        // The weather shelf: shown when coordinates are known or a reading is already cached.
+        Weather.Report known = weatherEnabled ? Weather.cached(this) : null;
+        boolean showPanel = weatherEnabled && (!Double.isNaN(weatherLat) || known != null);
+        contentRow.setVisibility(showPanel ? View.VISIBLE : View.GONE);
+        updateContentNavigation();
+        if (showPanel) {
             if (known != null) showWeather(known);
+            else weatherCard.loading(null);
             refreshWeather();
         }
 
@@ -413,13 +426,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             int id = v.getId();
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
                 // The top row has nothing above it; the second row moves up by nextFocusUp.
-                return id == R.id.btnInputs || id == R.id.btnWifi || id == R.id.btnWeather || id == R.id.btnSettings;
+                return id == R.id.btnInputs || id == R.id.btnWifi || id == R.id.btnSettings;
             }
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return id == R.id.btnInputs || id == R.id.btnRam;
             if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) return id == R.id.btnSettings || id == R.id.btnNetwork;
             return false;
         };
-        for (TextView pill : new TextView[]{btnInputs, btnWifi, btnWeather, btnSettings, btnRam, btnStorage, btnNetwork}) {
+        for (TextView pill : new TextView[]{btnInputs, btnWifi, btnSettings, btnRam, btnStorage, btnNetwork}) {
             pill.setOnKeyListener(pillKeys);
         }
 
@@ -457,7 +470,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * so the question is repeated a few times and once more when the network says it is there.
      */
     private void refreshWeather() {
-        if (Double.isNaN(weatherLat) || Double.isNaN(weatherLon)) return;
+        if (!weatherEnabled || Double.isNaN(weatherLat) || Double.isNaN(weatherLon)) return;
         if (weatherTries >= WEATHER_TRIES) return;
         weatherTries++;
         Weather.refresh(this, weatherLat, weatherLon, this::showWeather);
@@ -472,19 +485,27 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     };
 
-    /** Shows the temperature on the pill, with an icon and a brightness for the weather. */
+    /** Shows a fresh reading, or keeps the old one dimmed when the network could not answer. */
     private void showWeather(Weather.Report report) {
-        weatherReport = report;
-        btnWeather.setVisibility(View.VISIBLE);
-        btnWeather.setText(report.temperatureText());
-        Drawable icon = getDrawable(report.icon());
-        if (icon != null) {
-            btnWeather.setCompoundDrawablesRelativeWithIntrinsicBounds(icon.mutate(), null, null, null);
+        if (report == null) {
+            if (weatherReport != null) weatherCard.unavailable(weatherReport);
+            else weatherCard.unavailable(null);
+            return;
         }
-        // The reading is in: there is no need to keep asking for it.
+        weatherReport = report;
         weatherTries = 0;
         handler.removeCallbacks(weatherRetry);
-        applyPillColors();
+        contentRow.setVisibility(View.VISIBLE);
+        updateContentNavigation();
+        weatherCard.bind(report, false);
+    }
+
+    /** Weather shown in the shelf only exists when it can actually be shown. */
+    private void updateContentNavigation() {
+        int down = contentRow.getVisibility() == View.VISIBLE ? R.id.weatherPanel : R.id.grid;
+        btnRam.setNextFocusDownId(down);
+        btnStorage.setNextFocusDownId(down);
+        btnNetwork.setNextFocusDownId(down);
     }
 
     /**
@@ -627,16 +648,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             v.setCompoundDrawableTintList(cs);
             v.setShadowLayer(3 * density, 0, 1 * density, shadow);
         }
-        if (weatherReport == null || btnWeather == null) return;
-        int tint = weatherReport.tint();
-        if (onBright) tint = Contrast.darken(tint, 0.45f);
-        int alpha = Math.round(255 * weatherReport.brightness());
-        int normal = Color.argb(alpha, Color.red(tint), Color.green(tint), Color.blue(tint));
-        android.content.res.ColorStateList wcs = new android.content.res.ColorStateList(states,
-                new int[]{0xFF111111, normal});
-        btnWeather.setTextColor(wcs);
-        btnWeather.setCompoundDrawableTintList(wcs);
-        btnWeather.setShadowLayer(3 * density, 0, 1 * density, shadow);
     }
 
     @Override
