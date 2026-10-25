@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
@@ -146,7 +147,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private float density;
     /** Module cards (res/values/config.xml, module_cards): discovered on resume, shown only after the owner's Show. */
     private boolean moduleCards;
-    /** hidden_apps as the adapter sees them (config.xml or a theme's config.json): a hidden app gets no card either. */
+    /** hidden_apps from config.xml or a theme's config.json; the tile menu adds to this at runtime. */
+    private Set<String> configuredHidden = Collections.emptySet();
+    /** Everything the adapter hides, configured plus the owner's tile-menu choices. */
     private Set<String> hiddenApps = Collections.emptySet();
     private List<Cards.Card> cards = Collections.emptyList();
     /** The grid has been laid out and focused since the last resume; the card prompt waits for this. */
@@ -289,7 +292,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> updateContrast());
         vpnApp = cfg.vpnApp;
         moduleCards = cfg.moduleCards;
-        hiddenApps = new HashSet<>(cfg.hiddenApps);
+        configuredHidden = new HashSet<>(cfg.hiddenApps);
+        hiddenApps = new HashSet<>(configuredHidden);
+        hiddenApps.addAll(HiddenApps.load(this));
 
         grid = findViewById(R.id.grid);
         grid.setLayoutManager(new GridLayoutManager(this, COLUMNS));
@@ -299,6 +304,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         grid.setLayoutAnimation(new LayoutAnimationController(
                 AnimationUtils.loadAnimation(this, R.anim.tile_enter), 0.06f));
         adapter = new AppAdapter(this, this, COLUMNS, cfg);
+        adapter.setHidden(hiddenApps);
         grid.setAdapter(adapter);
 
         // tvOS layout: push the dock row towards the bottom of the screen, leaving room for
@@ -669,6 +675,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         final String returnKey = lastFocusedKey;
         final int returnSlot = lastFocused;
         final List<Cards.Card> none = Collections.emptyList();
+        hiddenApps = new HashSet<>(configuredHidden);
+        hiddenApps.addAll(HiddenApps.load(this));
+        adapter.setHidden(hiddenApps);
         cards = moduleCards ? CardFeature.run(() -> Cards.discover(this, hiddenApps, Cards.load(Cards.storeFile(this))), none) : none;
         adapter.reload(cards.isEmpty() ? none : CardFeature.run(() -> Cards.shown(cards), none));
         lastFocusedKey = returnKey;
@@ -859,11 +868,119 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return true;
     }
 
+    // ---- tile menu --------------------------------------------------------------------------------
+
+    /** Holding OK on a grid tile opens its menu; the dock stays as it is. */
+    @Override
+    public void onTileLongPressed(int position, View card) {
+        if (position < COLUMNS) return;                     // the dock is fixed
+        String pkg = adapter.packageAt(position);
+        if (pkg == null) return;
+        String label = adapter.labelAt(position);
+        View panel = getLayoutInflater().inflate(R.layout.popup_tile_menu, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        ((TextView) panel.findViewById(R.id.menuTitle)).setText(label);
+        final PopupWindow popup = glassPopup(panel, (int) (276 * density));
+
+        if (adapter.getItemCount() > COLUMNS) {
+            addMenuRow(rows, popup, R.drawable.ic_menu_move, getString(R.string.tile_move),
+                    () -> startMove(position));
+        }
+        addMenuRow(rows, popup, R.drawable.ic_menu_hide, getString(R.string.tile_hide), () -> {
+            if (!HiddenApps.hide(this, pkg)) {
+                Toast.makeText(this, R.string.tile_save_failed, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Toast.makeText(this, getString(R.string.tile_hidden_toast, label), Toast.LENGTH_SHORT).show();
+            reloadApps(true);
+        });
+        addMenuRow(rows, popup, R.drawable.ic_menu_info, getString(R.string.tile_app_info),
+                () -> open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:" + pkg))));
+        if (!HiddenApps.load(this).isEmpty()) {
+            addMenuRow(rows, popup, R.drawable.ic_menu_unhide, getString(R.string.tile_show_hidden),
+                    () -> showHiddenApps(card));
+        }
+
+        showMenuAt(popup, panel, card);
+        rows.getChildAt(0).requestFocus();
+    }
+
+    /** The hidden apps, so one can be brought back without editing config files. */
+    private void showHiddenApps(View anchor) {
+        View panel = getLayoutInflater().inflate(R.layout.popup_tile_menu, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        ((TextView) panel.findViewById(R.id.menuTitle)).setText(R.string.hidden_title);
+        final PopupWindow popup = glassPopup(panel, (int) (276 * density));
+        List<String> hidden = new ArrayList<>(HiddenApps.load(this));
+        Collections.sort(hidden, (a, b) -> appLabel(a).compareToIgnoreCase(appLabel(b)));
+        for (String pkg : hidden) {
+            addMenuRow(rows, popup, R.drawable.ic_menu_unhide, appLabel(pkg), () -> {
+                if (!HiddenApps.unhide(this, pkg)) {
+                    Toast.makeText(this, R.string.tile_save_failed, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Toast.makeText(this, getString(R.string.tile_unhidden_toast, appLabel(pkg)), Toast.LENGTH_SHORT).show();
+                reloadApps(true);
+            });
+        }
+        if (rows.getChildCount() == 0) return;
+        showMenuAt(popup, panel, anchor);
+        rows.getChildAt(0).requestFocus();
+    }
+
+    private void addMenuRow(LinearLayout rows, PopupWindow popup, int iconRes, String text, Runnable action) {
+        View row = getLayoutInflater().inflate(R.layout.item_menu, rows, false);
+        ((ImageView) row.findViewById(R.id.icon)).setImageResource(iconRes);
+        ((TextView) row.findViewById(R.id.title)).setText(text);
+        row.setOnClickListener(v -> {
+            popup.dismiss();
+            action.run();
+        });
+        rows.addView(row);
+    }
+
+    /** Places the menu under its tile, above it when there is no room below, kept inside the screen. */
+    private void showMenuAt(PopupWindow popup, View panel, View anchor) {
+        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        int w = Math.max(popup.getWidth(), panel.getMeasuredWidth());
+        int h = panel.getMeasuredHeight();
+        popup.setWidth(w);
+        int[] at = new int[2];
+        int[] rootAt = new int[2];
+        anchor.getLocationOnScreen(at);
+        root.getLocationOnScreen(rootAt);
+        int edge = (int) (12 * density), gap = (int) (8 * density);
+        int x = at[0] - rootAt[0];
+        int y = at[1] - rootAt[1] + anchor.getHeight() + gap;
+        x = Math.max(edge, Math.min(x, root.getWidth() - w - edge));
+        if (y + h > root.getHeight() - edge) y = at[1] - rootAt[1] - h - gap;
+        y = Math.max(edge, y);
+        panel.setAlpha(0f);
+        panel.setPivotY(0f);
+        panel.setScaleY(0.94f);
+        panel.setTranslationY(-6 * density);
+        popup.showAtLocation(root, Gravity.TOP | Gravity.START, x, y);
+        panel.animate().alpha(1f).scaleY(1f).translationY(0f).setDuration(180)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+    }
+
+    private String appLabel(String pkg) {
+        try {
+            PackageManager pm = getPackageManager();
+            ApplicationInfo info = pm.getApplicationInfo(pkg, 0);
+            CharSequence label = pm.getApplicationLabel(info);
+            if (label != null && label.length() > 0) return label.toString();
+        } catch (PackageManager.NameNotFoundException ignored) {
+            // Uninstalled after it was hidden: show the package so it can still be removed from the list.
+        }
+        return pkg;
+    }
+
     // ---- moving a tile around ---------------------------------------------------------------------
 
-    /** Holding OK on a grid tile starts moving it; the dock stays where it is. */
-    @Override
-    public void onTileLongPressed(int position) {
+    /** Starts moving a grid tile, from the tile's menu; the dock stays where it is. */
+    private void startMove(int position) {
         if (position < COLUMNS) return;                     // the dock is fixed
         if (adapter.getItemCount() <= COLUMNS) return;       // nothing below the dock to move
         moveMode = true;
