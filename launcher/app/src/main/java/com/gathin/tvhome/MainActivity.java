@@ -73,7 +73,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
     static int COLUMNS = 4;
-    private static final long MINUTE_MS = 60_000L;
+    /** One shared home-screen tick; the readings below are refreshed on multiples of it. */
+    private static final long TICK_MS = 1_000L;
     /** How long to wait before asking for the weather again, and how many times to ask. */
     private static final long WEATHER_RETRY_MS = 10_000L;
     private static final int WEATHER_TRIES = 6;
@@ -97,6 +98,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView btnWifi;
     private TextView btnWeather;
     private TextView btnSettings;
+    private TextView btnRam;
+    private TextView btnStorage;
+    private TextView btnNetwork;
     private TextView clock;
     private TextView ampm;
     private TextView date;
@@ -127,6 +131,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private int weatherTries;
     /** The last weather reading, kept for the colour of the pill. */
     private Weather.Report weatherReport;
+    /** Whether the weather is wanted at all (res/values/config.xml, weather_enabled). */
+    private boolean weatherEnabled;
+    /** Whole seconds since the shared home ticker started. */
+    private long tickCount;
     /** The hint shown while a tile is being moved. */
     private TextView moveHint;
     /** True while a tile is being moved around. */
@@ -214,12 +222,27 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             reloadApps(false);
         }
     };
-    private final Runnable minuteTick = new Runnable() {
+    /**
+     * One ticker for the whole home screen: link speed every second, memory every five, storage every
+     * thirty, greeting and Wi-Fi every minute, and the weather every half hour. One Handler instead of
+     * several keeps the TV's single main thread predictable.
+     */
+    private final Runnable homeTicker = new Runnable() {
         @Override
         public void run() {
-            updateGreeting();
-            updateWifiLabel();
-            handler.postDelayed(this, MINUTE_MS);
+            tickCount++;
+            InfoPill.update(MainActivity.this, btnNetwork, InfoPill.NETWORK);
+            if (tickCount % 5 == 0) InfoPill.update(MainActivity.this, btnRam, InfoPill.RAM);
+            if (tickCount % 30 == 0) InfoPill.update(MainActivity.this, btnStorage, InfoPill.STORAGE);
+            if (tickCount % 60 == 0) {
+                updateGreeting();
+                updateWifiLabel();
+            }
+            if (weatherEnabled && tickCount % 1800 == 0) {
+                weatherTries = 0;
+                refreshWeather();
+            }
+            handler.postDelayed(this, TICK_MS);
         }
     };
 
@@ -235,6 +258,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         sourcePanelService = cfg.sourcePanelService;
         sourcePanelAction = cfg.sourcePanelAction;
         greetingName = cfg.greetingName;
+        weatherEnabled = cfg.weatherEnabled;
         weatherLat = cfg.weatherLat;
         weatherLon = cfg.weatherLon;
 
@@ -354,9 +378,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnInputs = findViewById(R.id.btnInputs);
         btnSettings = findViewById(R.id.btnSettings);
         btnWeather = findViewById(R.id.btnWeather);
+        btnRam = findViewById(R.id.btnRam);
+        btnStorage = findViewById(R.id.btnStorage);
+        btnNetwork = findViewById(R.id.btnNetwork);
         moveHint = findViewById(R.id.moveHint);
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
+        btnRam.setOnClickListener(v -> open(new Intent(Settings.ACTION_APPLICATION_SETTINGS)));
+        btnStorage.setOnClickListener(v -> open(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS)));
+        btnNetwork.setOnClickListener(v -> open(new Intent(Settings.ACTION_WIFI_SETTINGS)));
         btnWifi.setOnLongClickListener(v -> {
             open(new Intent(Settings.ACTION_WIFI_SETTINGS));
             return true;
@@ -380,18 +410,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // jump to a tile far below when there is nothing in that direction.
         View.OnKeyListener pillKeys = (v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
-            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
-                // The left end is the first pill that is on screen.
-                View first = firstVisiblePill();
-                return first != null && first.getId() == v.getId();
+            int id = v.getId();
+            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                // The top row has nothing above it; the second row moves up by nextFocusUp.
+                return id == R.id.btnInputs || id == R.id.btnWifi || id == R.id.btnWeather || id == R.id.btnSettings;
             }
-            return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnSettings;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return id == R.id.btnInputs || id == R.id.btnRam;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) return id == R.id.btnSettings || id == R.id.btnNetwork;
+            return false;
         };
-        btnInputs.setOnKeyListener(pillKeys);
-        btnWifi.setOnKeyListener(pillKeys);
-        btnWeather.setOnKeyListener(pillKeys);
-        btnSettings.setOnKeyListener(pillKeys);
+        for (TextView pill : new TextView[]{btnInputs, btnWifi, btnWeather, btnSettings, btnRam, btnStorage, btnNetwork}) {
+            pill.setOnKeyListener(pillKeys);
+        }
 
         // Hide the glass when focus leaves the tiles.
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
@@ -417,14 +447,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         // The welcome splash goes over the home screen and fades out again.
         if (splash) root.post(() -> startActivity(Splash.intent(this)));
-    }
-
-    /** The first pill on screen, which is where focus stops on the left. */
-    private View firstVisiblePill() {
-        for (View v : new View[]{btnInputs, btnWifi, btnWeather}) {
-            if (v.getVisibility() == View.VISIBLE) return v;
-        }
-        return null;
     }
 
     /**
@@ -599,7 +621,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 new int[]{}};
         android.content.res.ColorStateList cs = new android.content.res.ColorStateList(states,
                 new int[]{0xFF111111, light});
-        for (TextView v : new TextView[]{btnInputs, btnWifi, btnSettings}) {
+        for (TextView v : new TextView[]{btnInputs, btnWifi, btnSettings, btnRam, btnStorage, btnNetwork}) {
             if (v == null) continue;
             v.setTextColor(cs);
             v.setCompoundDrawableTintList(cs);
@@ -631,7 +653,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         updateGreeting();
         updateWifiLabel();
         updateInputsButton();
-        handler.postDelayed(minuteTick, MINUTE_MS);
+        tickCount = 0;
+        InfoPill.update(this, btnRam, InfoPill.RAM);
+        InfoPill.update(this, btnStorage, InfoPill.STORAGE);
+        InfoPill.update(this, btnNetwork, InfoPill.NETWORK);
+        handler.postDelayed(homeTicker, TICK_MS);
     }
 
     /** Rebuilds the tiles (and the module cards), then puts focus back where it was. */
@@ -703,7 +729,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onPause() {
         super.onPause();
         unregisterReceiver(packageReceiver);
-        handler.removeCallbacks(minuteTick);
+        handler.removeCallbacks(homeTicker);
         // Nothing of ours stays on screen over another app; an undecided prompt simply returns next time.
         if (cardPrompt != null) cardPrompt.dismiss();
         if (openPopup != null) openPopup.dismiss();

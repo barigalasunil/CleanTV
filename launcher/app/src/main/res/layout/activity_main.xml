@@ -154,42 +154,92 @@
                 android:layout_alignParentEnd="true"
                 android:layout_alignBottom="@id/leftBlock"
                 android:layout_marginBottom="6dp"
-                android:orientation="horizontal">
+                android:orientation="vertical"
+                android:gravity="end">
 
-                <TextView
-                    android:id="@+id/btnInputs"
-                    style="@style/TopButton"
-                    android:text="@string/inputs"
-                    android:drawableStart="@drawable/ic_input"
-                    android:nextFocusDown="@+id/grid" />
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="end">
 
-                <TextView
-                    android:id="@+id/btnWifi"
-                    style="@style/TopButton"
-                    android:maxWidth="180dp"
-                    android:singleLine="true"
-                    android:ellipsize="end"
-                    android:text="@string/wifi"
-                    android:drawableStart="@drawable/ic_wifi"
-                    android:nextFocusDown="@+id/grid" />
+                    <TextView
+                        android:id="@+id/btnInputs"
+                        style="@style/StatusPill"
+                        android:text="@string/inputs"
+                        android:drawableStart="@drawable/ic_input"
+                        android:nextFocusRight="@+id/btnWifi"
+                        android:nextFocusDown="@+id/btnRam" />
 
-                <!-- Weather: hidden until the first reading arrives. -->
-                <TextView
-                    android:id="@+id/btnWeather"
-                    style="@style/TopButton"
-                    android:maxWidth="140dp"
-                    android:singleLine="true"
-                    android:ellipsize="end"
-                    android:visibility="gone"
-                    android:contentDescription="@string/weather"
-                    android:nextFocusDown="@+id/grid" />
+                    <TextView
+                        android:id="@+id/btnWifi"
+                        style="@style/StatusPill"
+                        android:maxWidth="180dp"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:text="@string/wifi"
+                        android:drawableStart="@drawable/ic_wifi"
+                        android:nextFocusLeft="@+id/btnInputs"
+                        android:nextFocusRight="@+id/btnWeather"
+                        android:nextFocusDown="@+id/btnStorage" />
 
-                <TextView
-                    android:id="@+id/btnSettings"
-                    style="@style/TopButton"
-                    android:text="@string/settings"
-                    android:drawableStart="@drawable/ic_settings"
-                    android:nextFocusDown="@+id/grid" />
+                    <!-- Weather: hidden until the first reading arrives. -->
+                    <TextView
+                        android:id="@+id/btnWeather"
+                        style="@style/StatusPill"
+                        android:maxWidth="140dp"
+                        android:singleLine="true"
+                        android:ellipsize="end"
+                        android:visibility="gone"
+                        android:contentDescription="@string/weather"
+                        android:nextFocusLeft="@+id/btnWifi"
+                        android:nextFocusRight="@+id/btnSettings"
+                        android:nextFocusDown="@+id/btnNetwork" />
+
+                    <TextView
+                        android:id="@+id/btnSettings"
+                        style="@style/StatusPill"
+                        android:text="@string/settings"
+                        android:drawableStart="@drawable/ic_settings"
+                        android:nextFocusLeft="@+id/btnWeather"
+                        android:nextFocusDown="@+id/btnNetwork" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="end">
+
+                    <TextView
+                        android:id="@+id/btnRam"
+                        style="@style/StatusPill"
+                        android:drawableStart="@drawable/ic_ram"
+                        android:contentDescription="@string/ram"
+                        android:nextFocusUp="@+id/btnInputs"
+                        android:nextFocusRight="@+id/btnStorage"
+                        android:nextFocusDown="@+id/grid" />
+
+                    <TextView
+                        android:id="@+id/btnStorage"
+                        style="@style/StatusPill"
+                        android:drawableStart="@drawable/ic_storage"
+                        android:contentDescription="@string/storage"
+                        android:nextFocusLeft="@+id/btnRam"
+                        android:nextFocusUp="@+id/btnWifi"
+                        android:nextFocusRight="@+id/btnNetwork"
+                        android:nextFocusDown="@+id/grid" />
+
+                    <TextView
+                        android:id="@+id/btnNetwork"
+                        style="@style/StatusPill"
+                        android:drawableStart="@drawable/ic_network"
+                        android:contentDescription="@string/network"
+                        android:nextFocusLeft="@+id/btnStorage"
+                        android:nextFocusUp="@+id/btnSettings"
+                        android:nextFocusDown="@+id/grid" />
+                </LinearLayout>
             </LinearLayout>
         </RelativeLayout>
 

@@ -27,6 +27,10 @@
     <string name="tile_save_failed">Couldn\'t save the hidden apps</string>
     <string name="ethernet">Ethernet</string>
     <string name="offline">Offline</string>
+    <string name="online">Online</string>
+    <string name="ram">RAM</string>
+    <string name="storage">Storage</string>
+    <string name="network">Network</string>
     <string name="not_available">Not available on this TV</string>
     <string name="cant_open">Can\'t open %1$s</string>
     <string name="date_format">EEEE  d MMMM</string>
