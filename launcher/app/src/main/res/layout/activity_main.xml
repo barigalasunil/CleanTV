@@ -186,37 +186,16 @@
                     android:nextFocusDown="@+id/grid" />
             </LinearLayout>
 
-            <!-- Home widgets: anchored under the pills, filled in by Widgets.java. Never focusable. -->
-            <LinearLayout
-                android:id="@+id/widgetRow"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentEnd="true"
-                android:layout_below="@id/topButtons"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal"
-                android:focusable="false"
-                android:clickable="false"
-                android:descendantFocusability="blocksDescendants"
-                android:importantForAccessibility="no" />
-        </RelativeLayout>
-
-        <!-- Fixed-height shelf, so the grid and the dock keep their place whether or not it shows. -->
-        <LinearLayout
-            android:id="@+id/contentRow"
-            android:layout_width="match_parent"
-            android:layout_height="142dp"
-            android:layout_marginTop="10dp"
-            android:orientation="horizontal"
-            android:visibility="gone">
-
+            <!-- Now Playing: under the clock, as tall as a widget cell. Sized in Widgets.java. -->
             <LinearLayout
                 android:id="@+id/nowPlayingCard"
-                android:layout_width="390dp"
-                android:layout_height="match_parent"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_alignParentStart="true"
+                android:layout_below="@id/topButtons"
+                android:layout_marginTop="6dp"
                 android:orientation="vertical"
-                android:padding="12dp"
-                android:background="@drawable/glass_panel"
+                android:padding="10dp"
                 android:visibility="gone">
 
                 <TextView
@@ -236,14 +215,14 @@
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
                     android:layout_weight="1"
-                    android:layout_marginTop="5dp"
+                    android:layout_marginTop="4dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
 
                     <FrameLayout
                         android:id="@+id/nowArtFrame"
-                        android:layout_width="84dp"
-                        android:layout_height="84dp"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
                         android:background="@drawable/album_art_bg"
                         android:clipToOutline="true">
 
@@ -256,8 +235,8 @@
 
                         <ImageView
                             android:id="@+id/nowArtIcon"
-                            android:layout_width="30dp"
-                            android:layout_height="30dp"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_music_note"
                             android:tint="#80FFFFFF"
@@ -268,7 +247,7 @@
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:layout_marginStart="12dp"
+                        android:layout_marginStart="10dp"
                         android:orientation="vertical">
 
                         <TextView
@@ -278,7 +257,7 @@
                             android:singleLine="true"
                             android:ellipsize="end"
                             android:textColor="#F2FFFFFF"
-                            android:textSize="16sp"
+                            android:textSize="15sp"
                             android:fontFamily="@font/outfit"
                             android:fontVariationSettings="'wght' 500" />
 
@@ -301,15 +280,15 @@
 
                         <LinearLayout
                             android:layout_width="match_parent"
-                            android:layout_height="30dp"
+                            android:layout_height="22dp"
                             android:orientation="horizontal"
                             android:gravity="center_vertical">
 
                             <ImageButton
                                 android:id="@+id/nowPrevious"
-                                android:layout_width="30dp"
-                                android:layout_height="30dp"
-                                android:padding="7dp"
+                                android:layout_width="24dp"
+                                android:layout_height="22dp"
+                                android:padding="5dp"
                                 android:background="@drawable/media_button_bg"
                                 android:src="@drawable/ic_media_previous"
                                 android:tint="@drawable/pill_text"
@@ -323,10 +302,10 @@
 
                             <ImageButton
                                 android:id="@+id/nowPlay"
-                                android:layout_width="34dp"
-                                android:layout_height="30dp"
-                                android:layout_marginStart="8dp"
-                                android:padding="7dp"
+                                android:layout_width="27dp"
+                                android:layout_height="22dp"
+                                android:layout_marginStart="6dp"
+                                android:padding="5dp"
                                 android:background="@drawable/media_button_bg"
                                 android:src="@drawable/ic_media_play"
                                 android:tint="@drawable/pill_text"
@@ -341,10 +320,10 @@
 
                             <ImageButton
                                 android:id="@+id/nowNext"
-                                android:layout_width="30dp"
-                                android:layout_height="30dp"
-                                android:layout_marginStart="8dp"
-                                android:padding="7dp"
+                                android:layout_width="24dp"
+                                android:layout_height="22dp"
+                                android:layout_marginStart="6dp"
+                                android:padding="5dp"
                                 android:background="@drawable/media_button_bg"
                                 android:src="@drawable/ic_media_next"
                                 android:tint="@drawable/pill_text"
@@ -359,7 +338,22 @@
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
-        </LinearLayout>
+
+            <!-- Home widgets: anchored under the pills, filled in by Widgets.java. Never focusable. -->
+            <LinearLayout
+                android:id="@+id/widgetRow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="81dp"
+                android:layout_alignParentEnd="true"
+                android:layout_below="@id/topButtons"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal"
+                android:focusable="false"
+                android:clickable="false"
+                android:descendantFocusability="blocksDescendants"
+                android:importantForAccessibility="no" />
+        </RelativeLayout>
 
         <!-- The wrapper clips at the grid's edge; the grid itself must not clip so scaled tiles can overflow their cells. -->
         <FrameLayout

@@ -48,6 +48,7 @@ final class Widgets {
     private GaugeView storageGauge;
     private TextView storageUsed;
     private TextView storageTotal;
+    private View nowPlaying;
     private int cell;
     private int lastWidth = -1;
 
@@ -83,16 +84,17 @@ final class Widgets {
         // Nothing in the row may take focus: the D-pad must still go from the pills straight to the grid.
         row.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
 
-        boolean weather = cfg.widgetWeather && !Double.isNaN(cfg.weatherLat) && !Double.isNaN(cfg.weatherLon);
+        boolean weather = cfg.widgetsEnabled && cfg.widgetWeather
+                && !Double.isNaN(cfg.weatherLat) && !Double.isNaN(cfg.weatherLon);
         if (weather) {
             weatherCell = weatherCell();
             row.addView(weatherCell, new LinearLayout.LayoutParams(0, 0));
         }
-        if (cfg.widgetRam) {
+        if (cfg.widgetsEnabled && cfg.widgetRam) {
             ramCell = gaugeCell(true);
             row.addView(ramCell, new LinearLayout.LayoutParams(0, 0));
         }
-        if (cfg.widgetStorage) {
+        if (cfg.widgetsEnabled && cfg.widgetStorage) {
             storageCell = gaugeCell(false);
             row.addView(storageCell, new LinearLayout.LayoutParams(0, 0));
         }
@@ -130,7 +132,34 @@ final class Widgets {
         size(weatherCell, weatherWidth, size, radius, gap);
         size(ramCell, size, size, radius, gap);
         size(storageCell, size, size, radius, 0);
+        sizeNowPlaying();
         row.requestLayout();
+    }
+
+    /** The Now Playing card shares this band: same top, same height, and clear of the widgets. */
+    void placeNowPlaying(View card) {
+        nowPlaying = card;
+        sizeNowPlaying();
+    }
+
+    private void sizeNowPlaying() {
+        if (nowPlaying == null || cell <= 0) return;
+        int widgetLeft = innerLeft();
+        int width = Math.min(px(350), Math.max(px(160), widgetLeft - px(30)));
+        ViewGroup.LayoutParams lp = nowPlaying.getLayoutParams();
+        lp.width = width;
+        lp.height = cell;
+        nowPlaying.setLayoutParams(lp);
+        // The same dark glass as the cells, with the same radius: one band, one material.
+        nowPlaying.setBackground(glass(Math.round(cell / 6f)));
+    }
+
+    /** Where the pills start, in the widget row's own parent. */
+    private int innerLeft() {
+        if (!(pillRow instanceof ViewGroup)) return pillRow.getLeft();
+        ViewGroup group = (ViewGroup) pillRow;
+        if (group.getChildCount() == 0) return pillRow.getLeft();
+        return pillRow.getLeft() + group.getChildAt(0).getLeft();
     }
 
     private void size(View view, int width, int height, int radius, int marginEnd) {

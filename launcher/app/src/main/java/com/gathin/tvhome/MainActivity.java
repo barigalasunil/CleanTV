@@ -127,7 +127,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private int weatherTries;
     /** The last weather reading, kept so an offline refresh can leave it on screen, dimmed. */
     private Weather.Report weatherReport;
-    private LinearLayout contentRow;
     private View nowPlayingView;
     private NowPlayingCard nowPlayingCard;
     /** The player updates the card, never the other way around. */
@@ -138,7 +137,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     };
     /** The widget row under the pills, and which of its widgets are wanted (res/values/config.xml). */
     private Widgets widgets;
-    private boolean widgetsEnabled;
     private boolean widgetWeatherEnabled;
     /** Whole seconds since the shared home ticker started. */
     private long tickCount;
@@ -263,7 +261,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         sourcePanelService = cfg.sourcePanelService;
         sourcePanelAction = cfg.sourcePanelAction;
         greetingName = cfg.greetingName;
-        widgetsEnabled = cfg.widgetsEnabled;
         widgetWeatherEnabled = cfg.widgetWeather;
         weatherLat = cfg.weatherLat;
         weatherLon = cfg.weatherLon;
@@ -383,18 +380,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         btnInputs = findViewById(R.id.btnInputs);
         btnSettings = findViewById(R.id.btnSettings);
-        contentRow = findViewById(R.id.contentRow);
         nowPlayingView = findViewById(R.id.nowPlayingCard);
         nowPlayingCard = new NowPlayingCard(this, this::updateContentRow);
         moveHint = findViewById(R.id.moveHint);
 
-        // The widget row under the pills, sized from the pill row's own measured width.
-        if (widgetsEnabled) {
-            widgets = Widgets.attach(this, findViewById(R.id.widgetRow), pillRow, cfg, density);
-            Weather.Report last = widgetWeatherEnabled ? Weather.cached(this) : null;
-            if (last != null) widgets.setWeather(last);
-            if (widgetWeatherEnabled && (last == null || last.stale())) refreshWeather();
-        }
+        // The band under the pills: the widget row and the Now Playing card, both sized from the
+        // pill row's own measured width. The card gets its size even when the widgets are off.
+        widgets = Widgets.attach(this, findViewById(R.id.widgetRow), pillRow, cfg, density);
+        widgets.placeNowPlaying(nowPlayingView);
+        Weather.Report last = widgetWeatherEnabled ? Weather.cached(this) : null;
+        if (last != null) widgets.setWeather(last);
+        if (widgetWeatherEnabled && (last == null || last.stale())) refreshWeather();
 
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
@@ -483,11 +479,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (widgets != null) widgets.setWeather(report);
     }
 
-    /** Music can appear on its own; the shelf exists while it does. */
+    /** The card can appear and disappear on its own; the widgets never move for it. */
     private void updateContentRow() {
-        boolean media = nowPlayingView.getVisibility() == View.VISIBLE;
-        contentRow.setVisibility(media ? View.VISIBLE : View.GONE);
-        contentRow.setGravity(Gravity.START);
         updateContentNavigation();
     }
 

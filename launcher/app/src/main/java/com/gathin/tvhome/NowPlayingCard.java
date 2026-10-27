@@ -7,7 +7,7 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-/** The small Now Playing card beside the weather; it is hidden whenever nothing is playing. */
+/** The small Now Playing card under the clock; it is hidden whenever nothing is playing. */
 final class NowPlayingCard {
 
     private final Activity ctx;
@@ -39,7 +39,7 @@ final class NowPlayingCard {
         next.setOnClickListener(v -> MediaNoteService.next());
     }
 
-    /** Null hides the card and gives the space back to the weather. */
+    /** Null hides the card; the widget band keeps its size, so nothing else moves. */
     void bind(MediaNoteService.Now now) {
         int wanted = now == null ? View.GONE : View.VISIBLE;
         if (card.getVisibility() != wanted) {
