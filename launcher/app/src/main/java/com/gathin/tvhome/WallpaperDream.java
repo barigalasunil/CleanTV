@@ -11,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextClock;
+import android.widget.TextView;
 
 import java.util.Random;
 
@@ -26,7 +27,7 @@ import java.util.Random;
 public class WallpaperDream extends DreamService {
 
     /** How long the clock stays where it is before it drifts to a new spot. */
-    private static final long MOVE_MS = 60_000L;
+    private static final long MOVE_MS = 15_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Random random = new Random();
@@ -39,6 +40,9 @@ public class WallpaperDream extends DreamService {
     private TextClock time;
     private TextClock meridiem;
     private TextClock date;
+    private View nowCard;
+    private TextView nowTitle;
+    private TextView nowArtist;
     /** How bright the wallpaper on screen is, cell by cell. */
     private float[] grid;
     /** The colours the clock had before the wallpaper was read. */
@@ -92,6 +96,9 @@ public class WallpaperDream extends DreamService {
         time = findViewById(R.id.dreamTime);
         meridiem = findViewById(R.id.dreamMeridiem);
         date = findViewById(R.id.dreamDate);
+        nowCard = findViewById(R.id.dreamNowPlaying);
+        nowTitle = findViewById(R.id.dreamNowTitle);
+        nowArtist = findViewById(R.id.dreamNowArtist);
         timeColor = time.getTextColors().getDefaultColor();
         meridiemColor = meridiem.getTextColors().getDefaultColor();
         dateColor = date.getTextColors().getDefaultColor();
@@ -124,9 +131,20 @@ public class WallpaperDream extends DreamService {
         });
     }
 
+    /** The screensaver only reads the player; its keys are never touched from here. */
+    private final MediaNoteService.Listener mediaListener = now -> {
+        if (nowCard == null) return;
+        nowCard.setVisibility(now == null ? View.GONE : View.VISIBLE);
+        if (now == null) return;
+        nowTitle.setText(now.title);
+        nowArtist.setText(now.artist);
+        nowArtist.setVisibility(now.artist.isEmpty() ? View.GONE : View.VISIBLE);
+    };
+
     @Override
     public void onDreamingStarted() {
         super.onDreamingStarted();
+        MediaNoteService.addListener(mediaListener);
         content.setAlpha(0f);
         content.post(() -> {
             placeClock();
@@ -139,12 +157,14 @@ public class WallpaperDream extends DreamService {
     @Override
     public void onDreamingStopped() {
         handler.removeCallbacks(tick);
+        MediaNoteService.removeListener(mediaListener);
         super.onDreamingStopped();
     }
 
     @Override
     public void onDetachedFromWindow() {
         handler.removeCallbacks(tick);
+        MediaNoteService.removeListener(mediaListener);
         if (wallpapers != null) {
             wallpapers.stop();
             wallpapers = null;

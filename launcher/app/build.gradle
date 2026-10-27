@@ -31,6 +31,52 @@ android {
     }
 }
 
+// ---- personal pictures -------------------------------------------------------------------------
+// personal-assets/ (git-ignored) is the owner's own set: wallpapers/ and splash/. When it holds any
+// pictures the APK is built from those, scaled into the build folder, and the tracked stock pictures
+// in src/main/assets are left out. A publishing build (-Ppublish) always ships the stock pictures.
+def personalRoot = file("${rootDir}/../personal-assets")
+def personalWallpapers = new File(personalRoot, 'wallpapers')
+def personalSplashDir = new File(personalRoot, 'splash')
+def picture = { File dir ->
+    dir.isDirectory() ? (dir.listFiles() ?: []).findAll {
+        it.isFile() && it.name.toLowerCase() ==~ /.*\.(jpe?g|png|webp|bmp)$/
+    }.sort { it.name } : []
+}
+def personalPictures = picture(personalWallpapers)
+def usePersonalPictures = !project.hasProperty('publish') && !personalPictures.isEmpty()
+def personalAssetsDir = file("${buildDir}/generated/personalAssets")
+
+android.sourceSets.main.assets.srcDirs = [usePersonalPictures ? personalAssetsDir : file('src/main/assets')]
+
+if (usePersonalPictures) {
+    def splash = picture(personalSplashDir)
+    println "assets: ${personalPictures.size()} personal wallpaper(s)" +
+            (splash.isEmpty() ? ' and no personal splash' : ' and a personal splash') +
+            ' from personal-assets (stock pictures are not bundled)'
+} else if (project.hasProperty('publish')) {
+    println 'assets: stock pictures from src/main/assets (publishing build)'
+} else {
+    println 'assets: stock pictures from src/main/assets (personal-assets/wallpapers is empty)'
+}
+
+def preparePersonalPictures = tasks.register('preparePersonalPictures', Exec) {
+    onlyIf { usePersonalPictures }
+    def python = file("${rootDir}/../tools/venv/Scripts/python.exe")
+    if (!python.exists()) python = file("${rootDir}/../tools/venv/bin/python")
+    def out = personalAssetsDir
+    def splash = picture(personalSplashDir)
+    inputs.dir(personalRoot)
+    outputs.dir(out)
+    doFirst { out.deleteDir() }
+    commandLine([python.absolutePath, file("${rootDir}/../tools/prepare-images.py").absolutePath,
+                 '--wallpapers', personalWallpapers.absolutePath,
+                 '--assets', out.absolutePath, '--clean'] +
+            (splash.isEmpty() ? [] : ['--splash', splash.first().absolutePath]))
+}
+
+tasks.named('preBuild').configure { dependsOn preparePersonalPictures }
+
 dependencies {
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.dynamicanimation:dynamicanimation:1.0.0'
