@@ -58,7 +58,6 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -86,7 +85,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private String sourcePanelAction;
 
     private AppAdapter adapter;
-    private DockDecoration dockDecor;
     private RecyclerView grid;
     private FrameLayout root;
     private GlassView glass;
@@ -115,25 +113,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private Wallpapers wallpapers;
     /** True when the wallpapers added their views to the home screen. */
     private boolean wallpapersAttached;
-    /** The single wallpaper a theme pushed (when the app's own wallpapers folder is empty). */
-    private ImageView themeWall;
-    /**
-     * The day/night theme. Recomputed at most once a minute (every 30 seconds while a blend runs),
-     * only while the home screen is visible, and applied with filters and colour state lists only.
-     */
-    private ThemeManager themes;
-    private ThemeManager.Tokens tokens;
-    /** How dark the wallpaper shows right now (the theme's night dimming, 1 in the day). */
-    private float wallpaperDim = 1f;
-    /** Whether walls/wallpapers/day and /night may replace the single wallpaper set (config.xml). */
-    private boolean phaseWallpapers;
     /** The text that sits on the wallpaper, and the colour it had before the wallpaper was read. */
     private final List<TextView> contrastTexts = new ArrayList<>();
     private final List<Integer> contrastBase = new ArrayList<>();
     /** The shade behind the clock and the pills. */
     private View scrim;
-    /** The gradient that paints the shade, so the theme can recolour it without a new view. */
-    private GradientDrawable scrimGlow;
     /** How bright the wallpaper is under the clock and under the pills. */
     private float clockBrightness = -1f, pillBrightness = -1f;
     /** The brightness of the wallpaper on screen, cell by cell. */
@@ -265,10 +249,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 updateGreeting();
                 updateWifiLabel();
             }
-            // The theme refreshes on the same ticker, at most once a minute (30 while blending).
-            if (tokens == null || (tokens.blending ? tickCount % 30 == 0 : tickCount % 60 == 0)) {
-                recomputeTheme();
-            }
             if (weatherEnabled && tickCount % 1800 == 0) {
                 weatherTries = 0;
                 refreshWeather();
@@ -292,9 +272,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         weatherEnabled = cfg.weatherEnabled;
         weatherLat = cfg.weatherLat;
         weatherLon = cfg.weatherLon;
-        // The one place the colours come from (config keys, or a theme's config.json).
-        themes = new ThemeManager(cfg);
-        phaseWallpapers = cfg.themeUsePhaseWallpapers;
 
         // The welcome splash comes once per boot, on top of the home screen (see Splash).
         boolean splash = cfg.splashEnabled && Splash.due(this);
@@ -341,13 +318,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             date.setPadding(0, (int) (4 * density), 0, 0);
         }
         // The clock, the date and the greeting sit on the wallpaper: their colour follows it.
-    // The hero name rides over the wallpaper like the clock texts, so it is contrast-tracked too.
         trackContrast(clock);
         trackContrast(ampm);
         trackContrast(date);
         trackContrast(greeting);
         trackContrast(shamsiDate);
-        trackContrast(heroName);
         // The views are only placed after this, so the wallpaper is read again once they are.
         root.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> updateContrast());
         vpnApp = cfg.vpnApp;
@@ -360,8 +335,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         grid.setLayoutManager(new GridLayoutManager(this, COLUMNS));
         grid.setHasFixedSize(true);
         grid.setItemAnimator(null);
-dockDecor = new DockDecoration(COLUMNS, density);
-        grid.addItemDecoration(dockDecor);
+        grid.addItemDecoration(new DockDecoration(COLUMNS, density));
         grid.setLayoutAnimation(new LayoutAnimationController(
                 AnimationUtils.loadAnimation(this, R.anim.tile_enter), 0.06f));
         adapter = new AppAdapter(this, this, COLUMNS, cfg);
@@ -494,9 +468,6 @@ dockDecor = new DockDecoration(COLUMNS, density);
                     .build(), vpnCallback);
         }
 
-        // The first theme pass, before the first frame is drawn.
-        recomputeTheme();
-
         // The welcome splash goes over the home screen and fades out again.
         if (splash) root.post(() -> startActivity(Splash.intent(this)));
     }
@@ -532,8 +503,6 @@ dockDecor = new DockDecoration(COLUMNS, density);
             return;
         }
         weatherReport = report;
-        // Sunrise and sunset may have arrived: the phase is worth one extra pass.
-        recomputeTheme();
         weatherTries = 0;
         handler.removeCallbacks(weatherRetry);
         weatherPanel.setVisibility(View.VISIBLE);
@@ -583,127 +552,11 @@ dockDecor = new DockDecoration(COLUMNS, density);
             wall.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
             wall.setImageBitmap(bmp);
             root.addView(wall, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            // The tint is applied on the view, never decoded into the bitmap again.
-            themeWall = wall;
-            if (tokens != null) {
-                wall.setColorFilter(tokens.wallpaperFilter);
-                wallpaperDim = tokens.wallpaperBrightness;
-            }
             // The text on top of it needs to know how bright the picture is.
             wallpaperGrid = Contrast.sampleScreen(bmp, dm.widthPixels, dm.heightPixels);
             updateContrast();
         } catch (Exception | OutOfMemoryError e) {
             // A bad or huge picture must never take the home screen down; the plain colour stays.
-        }
-    }
-
-    // ---- day / night theme -----------------------------------------------------------------------
-
-    /** The theme refreshes on the shared ticker, and once more when the weather brings a sunset. */
-    private void recomputeTheme() {
-        if (themes == null) return;
-        ThemeManager.Tokens t = themes.tokens(LocalTime.now(), weatherReport);
-        boolean changed = tokens == null
-                || Math.abs(t.blend - tokens.blend) > 0.002f
-                || Math.abs(t.warm - tokens.warm) > 0.002f
-                || t.isNight() != tokens.isNight();
-        tokens = t;
-        if (changed) applyTokens();
-    }
-
-    /** Puts the current phase on everything the home screen shows; colours only, never a layout. */
-    private void applyTokens() {
-        ThemeManager.Tokens t = tokens;
-        // The room behind everything, and (by the time the text pass runs) the wallpaper itself.
-        root.setBackgroundColor(t.background);
-        applyWallpaperTheme(t);
-        if (scrimGlow != null) {
-            int c = t.scrim & 0x00FFFFFF;
-            scrimGlow.setColors(new int[]{0x99000000 | c, 0x99000000 | c, 0x00000000});
-        }
-        // The texts on the wallpaper get their theme base first; the contrast pass decides the pole.
-        for (int i = 0; i < contrastTexts.size(); i++) {
-            int id = contrastTexts.get(i).getId();
-            contrastBase.set(i, id == R.id.ampm || id == R.id.date || id == R.id.greeting
-                    ? t.secondaryText : t.primaryText);
-        }
-        updateContrast();
-        // Pills and the moving hint: fresh state drawables, only when the tokens really changed.
-        for (TextView v : new TextView[]{btnInputs, btnWifi, btnSettings, btnRam, btnStorage, btnNetwork}) {
-            if (v != null) v.setBackground(ThemeManager.pillBackground(t, 16 * density));
-        }
-        if (moveHint != null) moveHint.setBackground(ThemeManager.pillBackground(t, 20 * density));
-        weatherCard.setTokens(t);
-        nowPlayingCard.applyTokens(t);
-        glass.applyTokens(t);
-        dockDecor.applyTokens(t);
-        // The ambient glow follows the phase too, without losing the app's own colour.
-        if (heroShown) setAmbient(ambientColor);
-        // The dock band's paints changed: one repaint of the grid, no layout.
-        grid.invalidate();
-        retintTileLabels();
-    }
-
-    /** The wallpaper gets the phase's own folder when there is one, otherwise the single tint. */
-    private void applyWallpaperTheme(ThemeManager.Tokens t) {
-        if (wallpapers == null) {
-            // The single picture a theme pushed: it takes the tint, it has no folders of its own.
-            if (themeWall != null) {
-                themeWall.setColorFilter(t.wallpaperFilter);
-                wallpaperDim = t.wallpaperBrightness;
-            }
-            return;
-        }
-        if (!wallpapersAttached) return;
-        boolean phaseSet = phaseWallpapers && Wallpapers.hasPhaseSets(this);
-        if (phaseSet) wallpapers.setPhaseSet("wallpapers/" + (t.isNight() ? "night" : "day"));
-        // On its own folder a picture is already right for the phase; on the single set the theme tints it.
-        boolean filterNeeded = !(phaseSet && wallpapers.usesPhaseSet());
-        wallpapers.applyFilter(filterNeeded ? t.wallpaperFilter : null);
-        wallpaperDim = filterNeeded ? t.wallpaperBrightness : 1f;
-    }
-
-    /**
-     * What a tile label should read on the wallpaper under it: the theme's light or dark pole for
-     * the brightness of the lower half (the rows the grid lives in). Measured once per theme pass,
-     * never per tile, so a scroll can't fight the theme over every frame.
-     */
-    private int tileLabelRgb() {
-        ThemeManager.Tokens t = tokens;
-        if (t == null) return 0xFFFFFFFF;
-        float b;
-        if (wallpaperGrid != null) {
-            float sum = 0f;
-            int n = 0;
-            for (int row = 7; row < Contrast.ROWS; row++) {
-                for (int col = 0; col < Contrast.COLS; col++) {
-                    sum += wallpaperGrid[row * Contrast.COLS + col];
-                    n++;
-                }
-            }
-            b = n == 0 ? 0.3f : sum / n;
-        } else {
-            b = Contrast.brightness(t.background);
-        }
-        return t.wallpaperTextRgb(b) & 0x00FFFFFF;
-    }
-
-    /** Gives the theme colours to the tiles already on screen without rebinding the grid. */
-    private void retintTileLabels() {
-        if (grid == null) return;
-        int rgb = tileLabelRgb();
-        adapter.setLabelColors(rgb, tokens.tileText, tokens.tileSurface);
-        for (int i = 0; i < grid.getChildCount(); i++) {
-            View item = grid.getChildAt(i);
-            if (item == null) continue;
-            TextView name = item.findViewById(R.id.name);
-            if (name != null) name.setTextColor(rgb);
-            TextView label = item.findViewById(R.id.label);
-            if (label != null) label.setTextColor(tokens.tileText);
-            View card = item.findViewById(R.id.card);
-            if (card != null) {
-                card.setBackgroundTintList(android.content.res.ColorStateList.valueOf(tokens.tileSurface));
-            }
         }
     }
 
@@ -716,7 +569,6 @@ dockDecor = new DockDecoration(COLUMNS, density);
     private void addScrim() {
         GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{0x99000000, 0x99000000, 0x00000000});
-        scrimGlow = g;
         View v = new View(this);
         v.setBackground(g);
         v.setImportantForAccessibility(ViewGroup.IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -773,8 +625,7 @@ dockDecor = new DockDecoration(COLUMNS, density);
         if (w <= 0 || h <= 0 || v.getWidth() == 0 || v.getHeight() == 0) return 0f;
         Rect r = new Rect(0, 0, v.getWidth(), v.getHeight());
         root.offsetDescendantRectToMyCoords(v, r);
-        // The theme dims the picture; brightness is read off it, never off a copy.
-        return Contrast.behind(grid, r.left, r.top, r.right, r.bottom, w, h) * wallpaperDim;
+        return Contrast.behind(grid, r.left, r.top, r.right, r.bottom, w, h);
     }
 
     /** Sets how bright the wallpaper is under the clock and under the pills, and colours the text. */
@@ -785,23 +636,19 @@ dockDecor = new DockDecoration(COLUMNS, density);
         applyContrast();
     }
 
-    /**
-     * The contrast pass, the last layer: it never invents its own colours, only flips between the
-     * two poles the theme gives it, so the two can't fight. It runs only when the wallpaper under
-     * a text (or the theme) has actually changed.
-     */
+    /** Colours the clock, the date and the greeting for the wallpaper on screen. */
     private void applyContrast() {
         boolean onBright = clockBrightness > Contrast.BRIGHT;
-        int rgb = (tokens != null ? tokens.wallpaperTextRgb(clockBrightness)
-                : Contrast.textColor(clockBrightness)) & 0x00FFFFFF;
+        int light = Contrast.textColor(clockBrightness);
         int shadow = onBright ? 0x59FFFFFF : 0x8C000000;
         for (int i = 0; i < contrastTexts.size(); i++) {
             TextView v = contrastTexts.get(i);
             int base = contrastBase.get(i);
             // Light text on a dark picture keeps its own transparency; dark text needs to be solid.
-            v.setTextColor(Contrast.tint(base, rgb, onBright ? 0xD9 : 0x00));
+            v.setTextColor(Contrast.tint(base, light, onBright ? 0xD9 : 0x00));
             v.setShadowLayer(3 * density, 0, 1 * density, shadow);
         }
+        if (scrim != null) scrim.setAlpha(Contrast.scrimAlpha(clockBrightness) / 255f);
         applyPillColors();
     }
 
@@ -811,15 +658,13 @@ dockDecor = new DockDecoration(COLUMNS, density);
      */
     private void applyPillColors() {
         boolean onBright = pillBrightness > Contrast.BRIGHT;
-        int light = (tokens != null ? tokens.wallpaperTextRgb(pillBrightness)
-                : Contrast.textColor(pillBrightness)) & 0x00FFFFFF;
-        int focusText = tokens != null ? tokens.focusText : 0xFF111111;
+        int light = Contrast.textColor(pillBrightness);
         int shadow = onBright ? 0x59FFFFFF : 0x8C000000;
         int[][] states = new int[][]{
                 new int[]{android.R.attr.state_focused},
                 new int[]{}};
         android.content.res.ColorStateList cs = new android.content.res.ColorStateList(states,
-                new int[]{focusText, light});
+                new int[]{0xFF111111, light});
         for (TextView v : new TextView[]{btnInputs, btnWifi, btnSettings, btnRam, btnStorage, btnNetwork}) {
             if (v == null) continue;
             v.setTextColor(cs);
@@ -1042,15 +887,7 @@ dockDecor = new DockDecoration(COLUMNS, density);
     private void setAmbient(int color) {
         ambientColor = color;
         int c = color & 0x00FFFFFF;
-        int strong = 0x5C;
-        int mid = 0x26;
-        if (tokens != null) {
-            // Keep the app's colour, but let the phase's accent and the night dimming show.
-            c = Contrast.mix(c, tokens.weatherGlow & 0x00FFFFFF, 0.16f + 0.16f * tokens.warm);
-            strong = Math.round(0x5C - 0x1C * tokens.blend);
-            mid = Math.round(0x26 - 0x12 * tokens.blend);
-        }
-        ambientGlow.setColors(new int[]{(strong << 24) | c, (mid << 24) | c, 0x00000000 | c});
+        ambientGlow.setColors(new int[]{0x5C000000 | c, 0x26000000 | c, 0x00000000 | c});
     }
 
     private void hideHero() {
@@ -1127,7 +964,6 @@ dockDecor = new DockDecoration(COLUMNS, density);
                     () -> showHiddenApps(card));
         }
 
-        themeMenu(panel);
         showMenuAt(popup, panel, card);
         rows.getChildAt(0).requestFocus();
     }
@@ -1151,7 +987,6 @@ dockDecor = new DockDecoration(COLUMNS, density);
             });
         }
         if (rows.getChildCount() == 0) return;
-        themeMenu(panel);
         showMenuAt(popup, panel, anchor);
         rows.getChildAt(0).requestFocus();
     }
@@ -1516,66 +1351,8 @@ dockDecor = new DockDecoration(COLUMNS, density);
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         popup.setWidth(Math.max(width, panel.getMeasuredWidth()));
 
-        themeMenu(panel);
         dropIn(popup, panel, anchor, Gravity.START);
         rows.getChildAt(0).requestFocus();
-    }
-
-    /** Colours a popup or dialog in the phase that is on screen at the moment it opens. */
-    private void themeMenu(View panel) {
-        if (tokens == null) return;
-        panel.setBackground(ThemeManager.panelBackground(tokens, 20 * density));
-        TextView title = panel.findViewById(R.id.menuTitle);
-        if (title != null) title.setTextColor(tokens.secondaryText);
-        LinearLayout rows = panel.findViewById(R.id.rows);
-        if (rows != null) {
-            for (int i = 0; i < rows.getChildCount(); i++) {
-                View row = rows.getChildAt(i);
-                if (!(row instanceof LinearLayout)) continue;   // separators stay thin lines
-                row.setBackgroundTintList(tokens.rowSurfaceStates());
-                TextView text = row.findViewById(R.id.title);
-                if (text != null) text.setTextColor(tokens.textStates(tokens.panelPrimaryText));
-                TextView status = row.findViewById(R.id.status);
-                if (status != null) status.setTextColor(tokens.panelSecondaryText);
-                ImageView icon = row.findViewById(R.id.icon);
-                if (icon != null) icon.setImageTintList(tokens.textStates(tokens.panelPrimaryText));
-            }
-        }
-    }
-
-    /** The card prompt and the module cards list: same glass and colours as the inputs menu. */
-    private void themeDialog(View panel) {
-        if (tokens == null) return;
-        ThemeManager.Tokens t = tokens;
-        panel.setBackground(ThemeManager.panelBackground(t, 20 * density));
-        for (int id : new int[]{R.id.title}) {
-            TextView v = panel.findViewById(id);
-            if (v != null) v.setTextColor(t.panelPrimaryText);
-        }
-        for (int id : new int[]{R.id.body, R.id.names, R.id.hint, R.id.identity, R.id.app,
-                R.id.pkg, R.id.digest, R.id.state}) {
-            TextView v = panel.findViewById(id);
-            if (v != null) v.setTextColor(t.panelSecondaryText);
-        }
-        for (int id : new int[]{R.id.btnKeep, R.id.btnShow}) {
-            TextView v = panel.findViewById(id);
-            if (v != null) {
-                v.setBackground(ThemeManager.pillBackground(t, 21 * density));
-                v.setTextColor(t.textStates(t.panelPrimaryText));
-            }
-        }
-        LinearLayout rows = panel.findViewById(R.id.rows);
-        if (rows != null) {
-            for (int i = 0; i < rows.getChildCount(); i++) {
-                View row = rows.getChildAt(i);
-                if (!(row instanceof LinearLayout)) continue;
-                row.setBackgroundTintList(t.rowSurfaceStates());
-                TextView text = row.findViewById(R.id.title);
-                if (text != null) text.setTextColor(t.textStates(t.panelPrimaryText));
-                ImageView icon = row.findViewById(R.id.icon);
-                if (icon != null) icon.setImageTintList(t.textStates(t.panelPrimaryText));
-            }
-        }
     }
 
     private PopupWindow glassPopup(View panel, int width) {
@@ -1604,7 +1381,7 @@ dockDecor = new DockDecoration(COLUMNS, density);
 
     private void addSeparator(LinearLayout rows) {
         View line = new View(this);
-        line.setBackgroundColor(tokens != null ? tokens.separator : 0x1FFFFFFF);
+        line.setBackgroundColor(0x1FFFFFFF);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) density);
         int m = (int) (6 * density), h = (int) (12 * density);
         lp.setMargins(h, m, h, m);
@@ -1706,7 +1483,6 @@ dockDecor = new DockDecoration(COLUMNS, density);
         };
         keep.setOnKeyListener(keys);
         show.setOnKeyListener(keys);
-        themeDialog(panel);
         cardPrompt = dialog;
         dialog.show();
         keep.requestFocus();
@@ -1769,7 +1545,6 @@ dockDecor = new DockDecoration(COLUMNS, density);
         anchor.getLocationInWindow(at);
         int room = root.getHeight() - (at[1] + anchor.getHeight()) - (int) (34 * density);
         popup.setHeight(Math.min(panel.getMeasuredHeight(), Math.max(room, (int) (120 * density))));
-        themeDialog(panel);
         dropIn(popup, panel, anchor, Gravity.END);
         rows.getChildAt(0).requestFocus();
     }

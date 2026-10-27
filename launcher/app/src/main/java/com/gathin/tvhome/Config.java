@@ -82,24 +82,6 @@ final class Config {
     final String liveTvAppPackage;
     /** The languages whose playlists the Live TV app loads. */
     final List<String> liveTvLanguages;
-    /** auto, day or night. */
-    final String themeMode;
-    /** Fixed day boundary, used until sunrise is known. */
-    final String themeDayStart;
-    /** Fixed night boundary, used until sunset is known. */
-    final String themeNightStart;
-    /** Soft warm colour used behind the launcher in daylight. */
-    final int themeDayBackground;
-    /** How much a wallpaper is dimmed at night, 0.3 to 1. */
-    final float themeNightDim;
-    /** Length of the sunrise and sunset blend, in minutes. */
-    final int themeTransitionMinutes;
-    /** Whether the day and night palette follows the wallpapers in the screensaver. */
-    final boolean themeApplyToScreensaver;
-    /** Whether assets/wallpapers/day and /night may replace the single wallpaper set. */
-    final boolean themeUsePhaseWallpapers;
-    /** Debug-only blend override, -1 when it is not used. */
-    final float themePreviewBlend;
 
     private Config(List<String> dockApps, List<String> hiddenApps, String liveTvPackage, String liveTvAction,
                    String sourcePanelService, String sourcePanelAction, String inputAction,
@@ -111,11 +93,7 @@ final class Config {
                    boolean splashEnabled, String splashMessage, int splashDurationMs,
                    int splashTextBottomPercent, String splashTextAlign,
                    boolean weatherEnabled, double weatherLat, double weatherLon,
-                   boolean liveTvEnabled, String liveTvAppPackage, List<String> liveTvLanguages,
-                   String themeMode, String themeDayStart, String themeNightStart, int themeDayBackground,
-                   float themeNightDim, int themeTransitionMinutes,
-                   boolean themeApplyToScreensaver, boolean themeUsePhaseWallpapers,
-                   float themePreviewBlend) {
+                   boolean liveTvEnabled, String liveTvAppPackage, List<String> liveTvLanguages) {
         this.dockApps = Collections.unmodifiableList(dockApps);
         this.hiddenApps = Collections.unmodifiableList(hiddenApps);
         this.liveTvPackage = liveTvPackage;
@@ -148,15 +126,6 @@ final class Config {
         this.liveTvEnabled = liveTvEnabled;
         this.liveTvAppPackage = liveTvEnabled ? liveTvAppPackage : "";
         this.liveTvLanguages = Collections.unmodifiableList(liveTvLanguages);
-        this.themeMode = mode(themeMode);
-        this.themeDayStart = themeDayStart;
-        this.themeNightStart = themeNightStart;
-        this.themeDayBackground = themeDayBackground;
-        this.themeNightDim = themeNightDim;
-        this.themeTransitionMinutes = themeTransitionMinutes;
-        this.themeApplyToScreensaver = themeApplyToScreensaver;
-        this.themeUsePhaseWallpapers = themeUsePhaseWallpapers;
-        this.themePreviewBlend = themePreviewBlend;
     }
 
     /** The folder the theme tools push into; null when external storage is unavailable. */
@@ -198,15 +167,6 @@ final class Config {
         boolean liveTvEnabled = res.getBoolean(R.bool.live_tv_enabled);
         String liveTvApp = res.getString(R.string.live_tv_app_package).trim();
         List<String> liveTvLanguages = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.live_tv_languages)));
-        String themeMode = res.getString(R.string.theme_mode).trim();
-        String themeDayStart = res.getString(R.string.theme_day_start).trim();
-        String themeNightStart = res.getString(R.string.theme_night_start).trim();
-        int themeDayBackground = colorText(res.getString(R.string.theme_day_background), 0xFFF3EFE8);
-        float themeNightDim = decimal(res.getString(R.string.theme_night_dim), 0.6f);
-        int themeTransition = res.getInteger(R.integer.theme_transition_minutes);
-        boolean themeScreensaver = res.getBoolean(R.bool.theme_apply_to_screensaver);
-        boolean themePhaseWallpapers = res.getBoolean(R.bool.theme_use_phase_wallpapers);
-        float themePreview = -1f;
 
         File dir = dir(ctx);
         File file = dir != null ? new File(dir, FILE_NAME) : null;
@@ -243,15 +203,6 @@ final class Config {
             liveTvEnabled = bool(json, "live_tv_enabled", liveTvEnabled);
             liveTvApp = string(json, "live_tv_app_package", liveTvApp);
             liveTvLanguages = stringList(json, "live_tv_languages", liveTvLanguages);
-            themeMode = string(json, "theme_mode", themeMode);
-            themeDayStart = string(json, "theme_day_start", themeDayStart);
-            themeNightStart = string(json, "theme_night_start", themeNightStart);
-            themeDayBackground = color(json, "theme_day_background", themeDayBackground);
-            themeNightDim = decimal(json, "theme_night_dim", themeNightDim, 0.3f, 1f);
-            themeTransition = integer(json, "theme_transition_minutes", themeTransition, 5, 120);
-            themeScreensaver = bool(json, "theme_apply_to_screensaver", themeScreensaver);
-            themePhaseWallpapers = bool(json, "theme_use_phase_wallpapers", themePhaseWallpapers);
-            themePreview = decimal(json, "theme_preview_blend", themePreview, 0f, 1f);
         }
         File wallpaper = dir != null ? new File(dir, WALLPAPER_NAME) : null;
         if (wallpaper != null && !(wallpaper.isFile() && wallpaper.length() > 0)) wallpaper = null;
@@ -268,16 +219,7 @@ final class Config {
                 splashEnabled, splashMessage, splashDuration,
                 clamp(splashBottom, 0, 60), align(splashAlign),
                 weatherEnabled, weatherLat, weatherLon,
-                liveTvEnabled, liveTvApp, liveTvLanguages,
-                mode(themeMode), themeDayStart, themeNightStart, themeDayBackground,
-                clamp(themeNightDim, 0.3f, 1f), clamp(themeTransition, 5, 120),
-                themeScreensaver, themePhaseWallpapers, themePreview);
-    }
-
-    private static String mode(String value) {
-        String v = value == null ? "" : value.trim().toLowerCase(java.util.Locale.US);
-        if ("day".equals(v) || "night".equals(v)) return v;
-        return "auto";
+                liveTvEnabled, liveTvApp, liveTvLanguages);
     }
 
     /** The splash message alignment, always one of the three the layout understands. */
@@ -289,36 +231,6 @@ final class Config {
 
     private static int clamp(int v, int min, int max) {
         return v < min ? min : (v > max ? max : v);
-    }
-
-    private static float clamp(float v, float min, float max) {
-        return v < min ? min : (v > max ? max : v);
-    }
-
-    private static float decimal(String value, float fallback) {
-        return (float) number(value, fallback);
-    }
-
-    private static float decimal(JSONObject o, String key, float fallback, float min, float max) {
-        Object v = o.opt(key);
-        float f;
-        if (v instanceof Number) {
-            f = ((Number) v).floatValue();
-        } else if (v instanceof String) {
-            f = decimal((String) v, fallback);
-        } else {
-            return fallback;
-        }
-        return f < min || f > max ? fallback : f;
-    }
-
-    private static int colorText(String value, int fallback) {
-        if (value == null) return fallback;
-        try {
-            return Color.parseColor(value.trim()) | 0xFF000000;
-        } catch (IllegalArgumentException e) {
-            return fallback;
-        }
     }
 
     /** Parses a coordinate from the config; NaN when it is missing or not a number. */
