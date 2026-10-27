@@ -97,9 +97,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView btnInputs;
     private TextView btnWifi;
     private TextView btnSettings;
-    private TextView btnRam;
-    private TextView btnStorage;
-    private TextView btnNetwork;
     private TextView clock;
     private TextView ampm;
     private TextView date;
@@ -131,8 +128,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** The last weather reading, kept so an offline refresh can leave it on screen, dimmed. */
     private Weather.Report weatherReport;
     private LinearLayout contentRow;
-    private View weatherPanel;
-    private WeatherPanel weatherCard;
     private View nowPlayingView;
     private NowPlayingCard nowPlayingCard;
     /** The player updates the card, never the other way around. */
@@ -185,10 +180,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         public void onAvailable(@NonNull Network network) {
             handler.post(() -> {
                 updateWifiLabel();
-                // The network is here now, so a missing or stale reading is asked for again.
-                if (weatherEnabled && (weatherReport == null || weatherReport.stale())) {
+                // The network is here now, so a reading that never arrived is asked for again.
+                if (weatherEnabled && weatherReport == null) {
                     weatherTries = 0;
-                    if (weatherReport == null && weatherCard != null) weatherCard.loading(null);
                     refreshWeather();
                 }
             });
@@ -242,9 +236,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         @Override
         public void run() {
             tickCount++;
-            InfoPill.update(MainActivity.this, btnNetwork, InfoPill.NETWORK);
-            if (tickCount % 5 == 0) InfoPill.update(MainActivity.this, btnRam, InfoPill.RAM);
-            if (tickCount % 30 == 0) InfoPill.update(MainActivity.this, btnStorage, InfoPill.STORAGE);
             if (tickCount % 60 == 0) {
                 updateGreeting();
                 updateWifiLabel();
@@ -389,27 +380,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnInputs = findViewById(R.id.btnInputs);
         btnSettings = findViewById(R.id.btnSettings);
         contentRow = findViewById(R.id.contentRow);
-        weatherPanel = findViewById(R.id.weatherPanel);
-        weatherCard = new WeatherPanel(this);
         nowPlayingView = findViewById(R.id.nowPlayingCard);
         nowPlayingCard = new NowPlayingCard(this, this::updateContentRow);
-        btnRam = findViewById(R.id.btnRam);
-        btnStorage = findViewById(R.id.btnStorage);
-        btnNetwork = findViewById(R.id.btnNetwork);
         moveHint = findViewById(R.id.moveHint);
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
-        btnRam.setOnClickListener(v -> open(new Intent(Settings.ACTION_APPLICATION_SETTINGS)));
-        btnStorage.setOnClickListener(v -> open(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS)));
-        btnNetwork.setOnClickListener(v -> open(new Intent(Settings.ACTION_WIFI_SETTINGS)));
         btnWifi.setOnLongClickListener(v -> {
             open(new Intent(Settings.ACTION_WIFI_SETTINGS));
             return true;
-        });
-        weatherPanel.setOnClickListener(v -> {
-            if (!weatherEnabled || Double.isNaN(weatherLat) || Double.isNaN(weatherLon)) return;
-            weatherTries = 0;
-            refreshWeather();
         });
         btnSettings.setOnClickListener(v -> open(new Intent(Settings.ACTION_SETTINGS)));
         btnSettings.setOnLongClickListener(v -> {
@@ -418,31 +396,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return true;
         });
 
-        // The weather shelf: shown when coordinates are known or a reading is already cached.
-        Weather.Report known = weatherEnabled ? Weather.cached(this) : null;
-        boolean showPanel = weatherEnabled && (!Double.isNaN(weatherLat) || known != null);
-        weatherPanel.setVisibility(showPanel ? View.VISIBLE : View.GONE);
         updateContentRow();
-        if (showPanel) {
-            if (known != null) showWeather(known);
-            else weatherCard.loading(null);
-            refreshWeather();
-        }
 
         // Keep focus on the top bar at its ends and at the top: Android's focus finder would otherwise
         // jump to a tile far below when there is nothing in that direction.
         View.OnKeyListener pillKeys = (v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
             int id = v.getId();
-            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-                // The top row has nothing above it; the second row moves up by nextFocusUp.
-                return id == R.id.btnInputs || id == R.id.btnWifi || id == R.id.btnSettings;
-            }
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return id == R.id.btnInputs || id == R.id.btnRam;
-            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) return id == R.id.btnSettings || id == R.id.btnNetwork;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return id == R.id.btnInputs;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) return id == R.id.btnSettings;
             return false;
         };
-        for (TextView pill : new TextView[]{btnInputs, btnWifi, btnSettings, btnRam, btnStorage, btnNetwork}) {
+        for (TextView pill : new TextView[]{btnInputs, btnWifi, btnSettings}) {
             pill.setOnKeyListener(pillKeys);
         }
 
@@ -495,40 +461,31 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     };
 
-    /** Shows a fresh reading, or keeps the old one dimmed when the network could not answer. */
+    /** Keeps the latest reading; a failed refresh leaves the old one in place. */
     private void showWeather(Weather.Report report) {
-        if (report == null) {
-            if (weatherReport != null) weatherCard.unavailable(weatherReport);
-            else weatherCard.unavailable(null);
-            return;
-        }
+        if (report == null) return;
         weatherReport = report;
         weatherTries = 0;
         handler.removeCallbacks(weatherRetry);
-        weatherPanel.setVisibility(View.VISIBLE);
         updateContentRow();
-        weatherCard.bind(report, false);
     }
 
-    /** Weather or music can appear on their own; the shelf exists while either one does. */
+    /** Music can appear on its own; the shelf exists while it does. */
     private void updateContentRow() {
-        boolean weather = weatherPanel.getVisibility() == View.VISIBLE;
         boolean media = nowPlayingView.getVisibility() == View.VISIBLE;
-        contentRow.setVisibility(weather || media ? View.VISIBLE : View.GONE);
-        contentRow.setGravity(media && !weather ? Gravity.END : Gravity.START);
+        contentRow.setVisibility(media ? View.VISIBLE : View.GONE);
+        contentRow.setGravity(Gravity.START);
         updateContentNavigation();
     }
 
-    /** The top row drops into the first shelf item that exists, or into the grid when there is none. */
+    /** The media keys sit under the top row; the grid's Up comes back to them. */
     private void updateContentNavigation() {
-        boolean weather = weatherPanel.getVisibility() == View.VISIBLE;
         boolean media = nowPlayingView.getVisibility() == View.VISIBLE;
-        int down = weather ? R.id.weatherPanel : (media ? R.id.nowPrevious : R.id.grid);
-        btnRam.setNextFocusDownId(down);
-        btnStorage.setNextFocusDownId(down);
-        btnNetwork.setNextFocusDownId(down);
-        weatherPanel.setNextFocusRightId(media ? R.id.nowPrevious : View.NO_ID);
-        grid.setNextFocusUpId(weather ? R.id.weatherPanel : (media ? R.id.nowPrevious : View.NO_ID));
+        int down = media ? R.id.nowPrevious : R.id.grid;
+        btnInputs.setNextFocusDownId(down);
+        btnWifi.setNextFocusDownId(down);
+        btnSettings.setNextFocusDownId(down);
+        grid.setNextFocusUpId(media ? R.id.nowPrevious : View.NO_ID);
     }
 
     /**
@@ -653,8 +610,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     /**
-     * The pills: the focused one keeps its dark text, the others follow the wallpaper. The weather
-     * pill keeps the colour of the weather, only darkened when the wallpaper is bright.
+     * The pills: the focused one keeps its dark text, the others follow the wallpaper, so the label
+     * and its icon are readable with nothing focused and stay readable while focused.
      */
     private void applyPillColors() {
         boolean onBright = pillBrightness > Contrast.BRIGHT;
@@ -665,7 +622,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 new int[]{}};
         android.content.res.ColorStateList cs = new android.content.res.ColorStateList(states,
                 new int[]{0xFF111111, light});
-        for (TextView v : new TextView[]{btnInputs, btnWifi, btnSettings, btnRam, btnStorage, btnNetwork}) {
+        for (TextView v : new TextView[]{btnInputs, btnWifi, btnSettings}) {
             if (v == null) continue;
             v.setTextColor(cs);
             v.setCompoundDrawableTintList(cs);
@@ -688,9 +645,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         updateWifiLabel();
         updateInputsButton();
         tickCount = 0;
-        InfoPill.update(this, btnRam, InfoPill.RAM);
-        InfoPill.update(this, btnStorage, InfoPill.STORAGE);
-        InfoPill.update(this, btnNetwork, InfoPill.NETWORK);
         handler.postDelayed(homeTicker, TICK_MS);
         MediaNoteService.addListener(mediaListener);
     }

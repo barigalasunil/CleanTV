@@ -2,15 +2,12 @@ package com.gathin.tvhome;
 
 import android.app.ActivityManager;
 import android.content.Context;
-import android.net.ConnectivityManager;
-import android.net.Network;
-import android.net.NetworkCapabilities;
 import android.os.Environment;
 import android.os.StatFs;
 
 import java.util.Locale;
 
-/** Cheap readings for the small status pills: memory, internal storage and link speed. */
+/** Cheap readings for the home widgets: memory and internal storage. */
 final class SysInfo {
 
     private SysInfo() {
@@ -38,24 +35,6 @@ final class SysInfo {
             return size(total - free) + " / " + size(total);
         } catch (Exception e) {
             return "";
-        }
-    }
-
-    static String network(Context ctx) {
-        try {
-            ConnectivityManager cm = (ConnectivityManager) ctx.getSystemService(Context.CONNECTIVITY_SERVICE);
-            Network net = cm != null ? cm.getActiveNetwork() : null;
-            NetworkCapabilities caps = net != null ? cm.getNetworkCapabilities(net) : null;
-            if (caps == null || !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-                return ctx.getString(R.string.offline);
-            }
-            int kbps = caps.getLinkDownstreamBandwidthKbps();
-            if (kbps <= 0) return ctx.getString(R.string.online);
-            if (kbps >= 1_000_000) return String.format(Locale.US, "%.1f Gbps", kbps / 1_000_000f);
-            if (kbps >= 1_000) return String.format(Locale.US, "%.0f Mbps", kbps / 1_000f);
-            return kbps + " Kbps";
-        } catch (Exception e) {
-            return ctx.getString(R.string.offline);
         }
     }
 

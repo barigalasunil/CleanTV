@@ -16,7 +16,6 @@
     <string name="good_night">Good night</string>
     <string name="greeting_named">%1$s, %2$s</string>
     <string name="weather">Weather</string>
-    <string name="weather_today">Today</string>
     <string name="weather_clear">Clear</string>
     <string name="weather_mainly_clear">Mainly clear</string>
     <string name="weather_partly_cloudy">Partly cloudy</string>
@@ -27,18 +26,6 @@
     <string name="weather_snow">Snow</string>
     <string name="weather_storm">Thunderstorm</string>
     <string name="weather_unknown">—</string>
-    <string name="weather_meta">Feels %1$s · %2$d%% humidity · %3$s wind</string>
-    <string name="weather_range">%1$s / %2$s</string>
-    <string name="weather_rain_chance">%1$d%%</string>
-    <string name="weather_description">Weather: %1$s, %2$s. Press OK to refresh.</string>
-    <string name="weather_updating_description">Weather is updating. Press OK to try again.</string>
-    <string name="weather_unavailable_description">Weather unavailable. Press OK to try again.</string>
-    <string name="weather_updated">Updated %1$s</string>
-    <string name="weather_stale">Last reading %1$s</string>
-    <string name="weather_offline">Offline · last reading %1$s</string>
-    <string name="weather_last_reading">Last reading</string>
-    <string name="weather_updating">Updating…</string>
-    <string name="weather_unavailable">Weather unavailable</string>
     <string name="now_playing">Now playing</string>
     <string name="now_playing_service">Now playing</string>
     <string name="media_previous">Previous</string>
@@ -57,10 +44,8 @@
     <string name="tile_save_failed">Couldn\'t save the hidden apps</string>
     <string name="ethernet">Ethernet</string>
     <string name="offline">Offline</string>
-    <string name="online">Online</string>
     <string name="ram">RAM</string>
     <string name="storage">Storage</string>
-    <string name="network">Network</string>
     <string name="not_available">Not available on this TV</string>
     <string name="cant_open">Can\'t open %1$s</string>
     <string name="date_format">EEEE  d MMMM</string>
