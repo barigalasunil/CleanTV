@@ -185,6 +185,20 @@
                     android:nextFocusLeft="@+id/btnWifi"
                     android:nextFocusDown="@+id/grid" />
             </LinearLayout>
+
+            <!-- Home widgets: anchored under the pills, filled in by Widgets.java. Never focusable. -->
+            <LinearLayout
+                android:id="@+id/widgetRow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_below="@id/topButtons"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal"
+                android:focusable="false"
+                android:clickable="false"
+                android:descendantFocusability="blocksDescendants"
+                android:importantForAccessibility="no" />
         </RelativeLayout>
 
         <!-- Fixed-height shelf, so the grid and the dock keep their place whether or not it shows. -->

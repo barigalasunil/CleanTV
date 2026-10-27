@@ -118,10 +118,18 @@
          be decoded the splash is skipped silently. The Android boot logo and boot animation are never
          touched: that needs root. -->
 
-    <!-- ===== Weather ===== -->
+    <!-- ===== Home widgets ===== -->
 
-    <!-- Show the weather pill next to Inputs / Wi-Fi / Settings. -->
-    <bool name="weather_enabled">true</bool>
+    <!-- One row of display-only widgets under the top buttons: weather (two cells), RAM and
+         storage. widgets_enabled false hides the whole row; the row keeps its size either way. -->
+    <bool name="widgets_enabled">true</bool>
+    <!-- Today's weather only, from Open-Meteo. Hidden on its own when no coordinates are set. -->
+    <bool name="widget_weather_enabled">true</bool>
+    <!-- A ring gauge of the memory in use (caches count as used) and of the data partition. -->
+    <bool name="widget_ram_enabled">true</bool>
+    <bool name="widget_storage_enabled">true</bool>
+
+    <!-- ===== Weather ===== -->
 
     <!-- The pincode the coordinates below were looked up from; kept for reference and not sent anywhere
          at run time. The lookup itself happens once, during setup, with OpenStreetMap Nominatim. -->

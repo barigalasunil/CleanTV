@@ -136,8 +136,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         nowPlayingCard.bind(now);
         updateContentNavigation();
     };
-    /** Whether the weather is wanted at all (res/values/config.xml, weather_enabled). */
-    private boolean weatherEnabled;
+    /** The widget row under the pills, and which of its widgets are wanted (res/values/config.xml). */
+    private Widgets widgets;
+    private boolean widgetsEnabled;
+    private boolean widgetWeatherEnabled;
     /** Whole seconds since the shared home ticker started. */
     private long tickCount;
     /** The hint shown while a tile is being moved. */
@@ -181,7 +183,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             handler.post(() -> {
                 updateWifiLabel();
                 // The network is here now, so a reading that never arrived is asked for again.
-                if (weatherEnabled && weatherReport == null) {
+                if (widgetWeatherEnabled && weatherReport == null) {
                     weatherTries = 0;
                     refreshWeather();
                 }
@@ -240,7 +242,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 updateGreeting();
                 updateWifiLabel();
             }
-            if (weatherEnabled && tickCount % 1800 == 0) {
+            if (widgets != null) widgets.tick(tickCount);
+            if (widgetWeatherEnabled && tickCount % 1800 == 0) {
                 weatherTries = 0;
                 refreshWeather();
             }
@@ -260,7 +263,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         sourcePanelService = cfg.sourcePanelService;
         sourcePanelAction = cfg.sourcePanelAction;
         greetingName = cfg.greetingName;
-        weatherEnabled = cfg.weatherEnabled;
+        widgetsEnabled = cfg.widgetsEnabled;
+        widgetWeatherEnabled = cfg.widgetWeather;
         weatherLat = cfg.weatherLat;
         weatherLon = cfg.weatherLon;
 
@@ -383,6 +387,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         nowPlayingView = findViewById(R.id.nowPlayingCard);
         nowPlayingCard = new NowPlayingCard(this, this::updateContentRow);
         moveHint = findViewById(R.id.moveHint);
+
+        // The widget row under the pills, sized from the pill row's own measured width.
+        if (widgetsEnabled) {
+            widgets = Widgets.attach(this, findViewById(R.id.widgetRow), pillRow, cfg, density);
+            Weather.Report last = widgetWeatherEnabled ? Weather.cached(this) : null;
+            if (last != null) widgets.setWeather(last);
+            if (widgetWeatherEnabled && (last == null || last.stale())) refreshWeather();
+        }
+
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
         btnWifi.setOnLongClickListener(v -> {
@@ -446,7 +459,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * so the question is repeated a few times and once more when the network says it is there.
      */
     private void refreshWeather() {
-        if (!weatherEnabled || Double.isNaN(weatherLat) || Double.isNaN(weatherLon)) return;
+        if (!widgetWeatherEnabled || Double.isNaN(weatherLat) || Double.isNaN(weatherLon)) return;
         if (weatherTries >= WEATHER_TRIES) return;
         weatherTries++;
         Weather.refresh(this, weatherLat, weatherLon, this::showWeather);
@@ -467,7 +480,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         weatherReport = report;
         weatherTries = 0;
         handler.removeCallbacks(weatherRetry);
-        updateContentRow();
+        if (widgets != null) widgets.setWeather(report);
     }
 
     /** Music can appear on its own; the shelf exists while it does. */

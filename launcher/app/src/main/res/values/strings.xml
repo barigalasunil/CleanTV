@@ -46,6 +46,11 @@
     <string name="offline">Offline</string>
     <string name="ram">RAM</string>
     <string name="storage">Storage</string>
+    <string name="widget_gb">%1$s GB</string>
+    <string name="widget_of_total">of %1$s GB</string>
+    <string name="widget_ram_description">RAM %1$s GB of %2$s GB</string>
+    <string name="widget_storage_description">Storage %1$s GB of %2$s GB</string>
+    <string name="weather_description">Weather: %1$s, %2$s</string>
     <string name="not_available">Not available on this TV</string>
     <string name="cant_open">Can\'t open %1$s</string>
     <string name="date_format">EEEE  d MMMM</string>

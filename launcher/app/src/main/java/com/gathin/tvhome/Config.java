@@ -70,8 +70,12 @@ final class Config {
     final int splashTextBottomPercent;
     /** Where the splash message sits horizontally: center, left or right. */
     final String splashTextAlign;
-    /** Whether the weather pill is shown. */
-    final boolean weatherEnabled;
+    /** Whether the row of home widgets under the top buttons is shown at all. */
+    final boolean widgetsEnabled;
+    /** Whether the weather, RAM and storage widgets are each drawn. */
+    final boolean widgetWeather;
+    final boolean widgetRam;
+    final boolean widgetStorage;
     /** Latitude of the place the weather is for, or NaN when it is not known. */
     final double weatherLat;
     /** Longitude of the place the weather is for, or NaN when it is not known. */
@@ -92,7 +96,8 @@ final class Config {
                    boolean screensaverEnabled, int screensaverIntervalSeconds,
                    boolean splashEnabled, String splashMessage, int splashDurationMs,
                    int splashTextBottomPercent, String splashTextAlign,
-                   boolean weatherEnabled, double weatherLat, double weatherLon,
+                   boolean widgetsEnabled, boolean widgetWeather, boolean widgetRam, boolean widgetStorage,
+                   double weatherLat, double weatherLon,
                    boolean liveTvEnabled, String liveTvAppPackage, List<String> liveTvLanguages) {
         this.dockApps = Collections.unmodifiableList(dockApps);
         this.hiddenApps = Collections.unmodifiableList(hiddenApps);
@@ -120,7 +125,10 @@ final class Config {
         this.splashDurationMs = splashDurationMs;
         this.splashTextBottomPercent = splashTextBottomPercent;
         this.splashTextAlign = splashTextAlign;
-        this.weatherEnabled = weatherEnabled;
+        this.widgetsEnabled = widgetsEnabled;
+        this.widgetWeather = widgetWeather;
+        this.widgetRam = widgetRam;
+        this.widgetStorage = widgetStorage;
         this.weatherLat = weatherLat;
         this.weatherLon = weatherLon;
         this.liveTvEnabled = liveTvEnabled;
@@ -161,7 +169,10 @@ final class Config {
         int splashDuration = res.getInteger(R.integer.splash_duration_ms);
         int splashBottom = res.getInteger(R.integer.splash_text_bottom_percent);
         String splashAlign = res.getString(R.string.splash_text_align).trim();
-        boolean weatherEnabled = res.getBoolean(R.bool.weather_enabled);
+        boolean widgetsEnabled = res.getBoolean(R.bool.widgets_enabled);
+        boolean widgetWeather = res.getBoolean(R.bool.widget_weather_enabled);
+        boolean widgetRam = res.getBoolean(R.bool.widget_ram_enabled);
+        boolean widgetStorage = res.getBoolean(R.bool.widget_storage_enabled);
         double weatherLat = number(res.getString(R.string.weather_lat));
         double weatherLon = number(res.getString(R.string.weather_lon));
         boolean liveTvEnabled = res.getBoolean(R.bool.live_tv_enabled);
@@ -197,7 +208,10 @@ final class Config {
             splashDuration = integer(json, "splash_duration_ms", splashDuration, 500, 30000);
             splashBottom = integer(json, "splash_text_bottom_percent", splashBottom, 0, 60);
             splashAlign = string(json, "splash_text_align", splashAlign);
-            weatherEnabled = bool(json, "weather_enabled", weatherEnabled);
+            widgetsEnabled = bool(json, "widgets_enabled", widgetsEnabled);
+            widgetWeather = bool(json, "widget_weather_enabled", widgetWeather);
+            widgetRam = bool(json, "widget_ram_enabled", widgetRam);
+            widgetStorage = bool(json, "widget_storage_enabled", widgetStorage);
             weatherLat = coordinate(json, "weather_lat", weatherLat);
             weatherLon = coordinate(json, "weather_lon", weatherLon);
             liveTvEnabled = bool(json, "live_tv_enabled", liveTvEnabled);
@@ -218,7 +232,7 @@ final class Config {
                 screensaverEnabled, Math.max(5, screensaverInterval),
                 splashEnabled, splashMessage, splashDuration,
                 clamp(splashBottom, 0, 60), align(splashAlign),
-                weatherEnabled, weatherLat, weatherLon,
+                widgetsEnabled, widgetWeather, widgetRam, widgetStorage, weatherLat, weatherLon,
                 liveTvEnabled, liveTvApp, liveTvLanguages);
     }
 
