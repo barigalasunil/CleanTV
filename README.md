@@ -47,13 +47,15 @@ These come from [tv-vibehack](https://github.com/Gathin23/tv-vibehack) by [@Gath
 | **Welcome splash** | A picture with your name, shown once per boot and skipped by any key. |
 | **Personal greeting name** | Your name in the home greeting and the splash. |
 | **Wallpaper rotation** | Several wallpapers behind the tiles, with a slow crossfade. |
-| **Weather pill from a pincode** | The current temperature and sky icon, looked up from the coordinates for your pincode. |
-| **Adaptive text contrast** | The clock, greeting, date and buttons switch between light and dark to stay readable on every picture. |
-| **Wallpaper screensaver** | The same wallpapers in the screensaver, with the time and date drifting over them. |
+| **Home widgets** | One display-only row under the pills: today's weather over two cells, then a RAM and a storage ring gauge, on the same kind of dark glass as the dock. |
+| **Adaptive text contrast** | The clock, greeting, date, buttons and tile labels switch between light and dark to stay readable on every picture. The widgets never do: they are dark glass on purpose. |
+| **Now Playing card** | Under the clock while something plays: art, title, artist and previous/play/next. It only ever appears in the widget band, so nothing else moves. |
+| **Tile menu** | Hold OK on a tile for move, hide, unhide and app info. |
+| **Wallpaper screensaver** | The same wallpapers in the screensaver, with the time, the date and the Now Playing line drifting over them every fifteen seconds. |
 | **App grid reordering** | Hold OK on a tile, move it with the D-pad, OK drops it; the dock stays fixed. |
 | **Live TV app** | An optional Media3 player with channels grouped by language, filtered by the languages you pick. |
 | **First-connection helper** | [`tools/connect.sh`](tools/connect.sh) waits for the TV and explains an unauthorised, offline or wrong address instead of hanging. |
-| **Image tools** | [`tools/set-images.sh`](tools/set-images.sh) scales your wallpapers and splash picture into the APK, and [`tools/pincode-to-coords.py`](tools/pincode-to-coords.py) looks up the weather coordinates. |
+| **Image tools** | [`tools/set-images.sh`](tools/set-images.sh) scales your wallpapers, previews, splash and avatar and pushes them to the TV, and [`tools/pincode-to-coords.py`](tools/pincode-to-coords.py) looks up the weather coordinates. |
 | **Personalisation questions** | The setup questions in [`PROMPT.md`](PROMPT.md) ask for your name, pincode, wallpapers and splash picture. |
 
 ## How it works
@@ -151,13 +153,14 @@ export TV_HOST=192.168.1.50                                   # your TV's IP add
 
 tools/connect.sh                                              # wait for the TV, with a clear error
 tools/venv/bin/python -I tools/tv.py --probe                 # model, Android version, firmware
+tools/venv/bin/python -I tools/netcheck.py                   # read-only: does the network validate?
 tools/venv/bin/python -I tools/tv.py 'pm list packages'      # one shell command on the TV
 tools/disable.sh examples/xiaomi-mi-tv-4a/debloat.txt        # apply a debloat list
 tools/restore.sh examples/xiaomi-mi-tv-4a/debloat.txt        # undo it, stock launcher back
 TV_HOST=192.168.1.50 launcher/build-and-install.sh           # build the launcher and make it Home
 LIVE_TV=1 TV_HOST=192.168.1.50 launcher/build-and-install.sh # ... and the Live TV app with it
 tools/theme.sh themes/aurora                                 # push a theme; --reset removes it
-tools/set-images.sh                                           # put your own pictures in the APK
+tools/set-images.sh                                           # build personal-assets/theme and push it
 tools/venv/bin/python -I tools/pincode-to-coords.py 110001   # coordinates for the weather pill
 tools/venv/bin/python -I tools/screenshot.py 192.168.1.50:5555 shot.png
 ```
@@ -168,10 +171,11 @@ tools/venv/bin/python -I tools/screenshot.py 192.168.1.50:5555 shot.png
 | [`tools/b64push.py`](tools/b64push.py) | Uploads large files such as APKs in base64 chunks and verifies the checksum. |
 | [`tools/connect.sh`](tools/connect.sh) | Waits for the TV to answer on the network, up to a minute, and says what is wrong (unauthorised, offline, wrong IP) instead of hanging. |
 | [`tools/disable.sh`](tools/disable.sh), [`restore.sh`](tools/restore.sh) | Apply or undo a debloat list. |
-| [`tools/theme.sh`](tools/theme.sh) | Push a folder from [`themes/`](themes/) to the launcher and restart Home. |
-| [`tools/set-images.sh`](tools/set-images.sh) | Copies your wallpapers and splash picture into the launcher's assets, scaled down to 1920x1080 JPEG. |
+| [`tools/theme.sh`](tools/theme.sh) | Push a theme folder to the TV and restart Home; `--reset` removes the pushed theme. |
+| [`tools/set-images.sh`](tools/set-images.sh) | Builds `personal-assets/theme` from your pictures (1920x1080 wallpapers, 320x180 previews) and uploads it when `TV_HOST` is set. |
 | [`tools/pincode-to-coords.py`](tools/pincode-to-coords.py) | Turns a pincode into the coordinates the weather pill needs. |
 | [`tools/screenshot.py`](tools/screenshot.py) | Takes a picture of the TV screen; some TVs damage the picture when it comes over the shell. |
+| [`tools/netcheck.py`](tools/netcheck.py) | Read-only network health check: reports the network's `VALIDATED` state, captive-portal state, any configured HTTP proxy and disabled network packages. Exit 0 healthy, 1 a problem, 2 no connection. |
 | [`launcher/build-and-install.sh`](launcher/build-and-install.sh) | Builds a shrunk release (about 2.2 MB with the bundled pictures), installs it, switches Home, and rolls back if Home does not land on it. |
 
 Every script has a PowerShell twin next to it. On Windows with Android Studio installed nothing
@@ -196,8 +200,8 @@ network, no background services. It needs JDK 17 and Android SDK platform 34 to 
 `brew install openjdk@17 android-commandlinetools` and `sdkmanager "platforms;android-34" "build-tools;34.0.0"`.
 
 - **Configure** in [`config.xml`](launcher/app/src/main/res/values/config.xml): dock order, hidden apps, the Live TV package, columns (tiles shrink from 5 up), rows under the dock, an optional VPN app for the network pill.
-- **Personalise** in the same file: your name for the greeting and the splash, the place the weather is for, the wallpapers and the splash picture. The personal answers live in `config.xml` and nowhere else.
-- **Themes** set the same keys plus a background colour and a wallpaper from a `config.json` pushed to the TV, no rebuild. Three ship in [`themes/`](themes/), documented there.
+- **Personalise** through the pushed theme: `theme/config.json` holds your name, the place the weather is for and the splash message; `theme/avatar.jpg`, `theme/splash.jpg` and `theme/wallpapers/` hold your pictures. The personal answers live in the git-ignored `personal-assets/` folder and on the TV, not in `config.xml` or the APK.
+- **Themes** set the same keys plus a background colour and their own pictures from a folder pushed to the TV, no rebuild. Three ship in [`themes/`](themes/), documented there.
 - **Language** follows the TV: English, German, Spanish, Catalan, French, Russian, Simplified Chinese, Thai. Android 13+ can set it for the launcher alone: `tools/tv.py 'cmd locale set-app-locales com.gathin.tvhome --locales ca'`.
 - **Module cards** let any TV app declare its own tile (label, caption, glow). The launcher asks you once per app, Keep hidden by default, and remembers the answer for that app's signing key and card name. Hold OK on Settings to change your mind. An app declares a card with a `com.gathin.tvhome.category.DOCK_CARD` filter and a `com.gathin.tvhome.card` XML resource (`spec="1"`, `label`, optional `caption` and `accent="#RRGGBB"`) on the activity that already has the LEANBACK_LAUNCHER filter.
 - **Screensavers**: a drifting clock (`ClockDream`), or the wallpapers one after another with the time and the date drifting over them (`WallpaperDream`). Pick one in the TV's screensaver settings, or over ADB:
@@ -222,12 +226,21 @@ Everything below is a key in `config.xml`, with the comment in the file explaini
 | `wallpaper_interval_seconds` | How long each picture stays on the home screen before the next fades in. |
 | `screensaver_enabled` | Whether the wallpaper screensaver shows your pictures. |
 | `screensaver_interval_seconds` | How long each picture stays in the screensaver before the next fades in. |
-| `weather_enabled` | The weather pill next to the buttons. |
+| `widgets_enabled` | The single row of home widgets under the pills (`true` by default). |
+| `widget_weather_enabled` | Today's weather in that row; hidden on its own when no coordinates are set. |
+| `widget_ram_enabled`, `widget_storage_enabled` | The RAM and storage ring gauges. |
 | `weather_pincode`, `weather_lat`, `weather_lon` | The place the weather is for. |
 
-The pictures live in the assets: `assets/wallpapers/wall-01.jpg` and up for the wallpapers,
-`assets/splash/splash.jpg` for the splash. `tools/set-images.sh` copies yours in and scales them
-down to 1920x1080 JPEG so the APK stays small.
+The RAM widget shows memory in use against the total, and **memory in use includes caches** (it is
+the same reading the TV's own settings show). The gauges turn amber from 75% and red from 90%.
+
+The pictures live in `personal-assets/wallpapers/`, `personal-assets/splash/` and an optional
+`personal-assets/avatar.*` (all git-ignored). `tools/set-images.sh` builds the pushed theme at
+`personal-assets/theme/` (1920x1080 JPEG wallpapers, 320x180 previews, `wallpapers.json` with names
+and moods) and uploads it when `TV_HOST` is set. The APK only ever ships the stock pictures in
+`launcher/app/src/main/assets/`; the theme is the app's own external data and needs no storage
+permission. Uninstalling the launcher deletes that data, so keep `personal-assets/theme` as the
+master copy.
 
 The splash shows **once per boot**, not once per app start: the launcher compares the boot count
 from `Settings.Global.BOOT_COUNT` with the one it remembers, and falls back to
@@ -239,15 +252,15 @@ brightness under a piece of text picks its colour: white on a dark picture, near
 one, with a shade only where the picture is dark. The clock, the greeting, the date, the buttons and
 the screensaver's clock all follow the same rule, and the colour crossfades with the picture.
 
-The weather comes from [Open-Meteo](https://open-meteo.com), which needs no key and no account.
-The launcher asks for the current temperature, whether it is day or night and the weather code,
-and keeps the answer for half an hour. `tools/pincode-to-coords.py` turns your pincode into the
-coordinates it needs, once, on your computer.
+The weather widget comes from [Open-Meteo](https://open-meteo.com), which needs no key and no
+account. One request asks for the current temperature, the weather code and whether it is day, and
+the answer is cached and refreshed every half an hour; offline, the last reading stays up and a
+failure is silent. `tools/pincode-to-coords.py` turns your pincode into the coordinates it needs,
+once, on your computer.
 
-The pill is hidden while the weather is unknown and asks again: at boot Home starts before the TV's
-network is up, so the first request fails (`Unable to resolve host "api.open-meteo.com"` in
-`adb logcat -s TvHome.Weather`) and the launcher retries every ten seconds for the first minute, and
-once more when the network comes up. If the pill stays hidden, check that log: a wrong coordinate
+The widget is hidden while the coordinates are unknown: at boot Home starts before the TV's network
+is up, so the first request fails and the launcher retries every ten seconds for the first minute,
+and once more when the network comes up. If the widget stays hidden, check the coordinates: a wrong
 or no internet is the usual cause.
 
 ## The Live TV app
@@ -288,11 +301,12 @@ Settings → Apps page can re-enable packages too.
 
 ## When something goes wrong
 
-The three that bit us most:
+The four that bit us most:
 
 - **macOS blocks `adb connect`** ("No route to host") under Local Network privacy. `tools/tv.py` avoids the binary.
 - **Disable the stock launcher only after the new one is installed and running**, or Home lands on a factory test app. The install script orders this for you.
 - **On Google TV the setup wizard** (`com.google.android.tungsten.setupwraith`) can take Home and crash-loop the system after the stock launcher is disabled. Disable it too, and list it in your `debloat.txt` so restore brings it back. Stuck already? `tools/tv.py 'pm enable --user 0 com.google.android.apps.tv.launcherx'`.
+- **Apps say they cannot connect to Wi-Fi while YouTube and Netflix still play**: something set a global HTTP proxy. `dumpsys connectivity` shows Wi-Fi connected but never `VALIDATED`, and the log has `PROBE_HTTP ... Failed to connect to /127.0.0.1:9`. Check `settings get global global_http_proxy_host`, `global_http_proxy_port` and `http_proxy` (the short `http_proxy` key can read `null` while a proxy is set), then clear it with `settings delete global global_http_proxy_host`, `settings delete global global_http_proxy_port` and `settings put global http_proxy :0`, and confirm `VALIDATED` in `dumpsys connectivity`. On some sets the deletes alone leave the old proxy cached; the legacy `http_proxy :0` write is what makes the connectivity check pass again. Clearing the proxy also un-blocks whatever it was put there to block, usually ads or telemetry — use a DNS-level filter instead if you want that back.
 
 ## If the coding agent seems stuck
 
@@ -335,7 +349,7 @@ top, a launcher, a port, a theme? Add it to [SHOWCASE.md](SHOWCASE.md).
 This project is based on [tv-vibehack](https://github.com/Gathin23/tv-vibehack) by
 [@Gathin23](https://github.com/Gathin23): the launcher, the prompt and the tools started there.
 
-Data: the weather pill uses [Open-Meteo](https://open-meteo.com) for the forecast and
+Data: the weather widget uses [Open-Meteo](https://open-meteo.com) for the current conditions and
 [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org) once during setup to turn a pincode
 into coordinates; the Live TV app takes its channel lists from the public
 [iptv-org](https://iptv-org.github.io) playlists.

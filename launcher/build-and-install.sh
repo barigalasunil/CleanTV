@@ -113,4 +113,14 @@ if [ "${LIVE_TV:-0}" = 1 ]; then
     | "$PY" -I ../tools/tv.py --batch
 fi
 
+# The theme is not in the APK, so a reinstall leaves whatever was pushed before. Re-push the local
+# master copy when it is there, which also refreshes a theme prepared since the last install.
+THEME=../personal-assets/theme
+if [ -d "$THEME" ]; then
+  echo "Re-pushing the personal theme ..."
+  "$PY" -I ../tools/theme_push.py --source "$THEME"
+else
+  echo "No personal-assets/theme found; the launcher will show the stock pictures."
+fi
 echo "Installed. Press Home on the remote to see it."
+echo "The pushed theme lives in /sdcard/Android/data/com.gathin.tvhome/files/theme; uninstalling the app deletes it."

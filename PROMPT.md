@@ -55,6 +55,8 @@ Debloat
   keyboard, Google Play Store and Play Services. Manufacturer package names often don't say what a
   package does: check its activities and services with `dumpsys package` first, and ask me if it's
   still unclear.
+- Keep the network path intact: never disable the network stack (`com.android.networkstack*`, `com.google.android.networkstack*` or a vendor equivalent such as `com.mediatek.network`), the captive portal login app (`com.android.captiveportallogin`), the system WebView, Play Services, or the Chromecast built-in receiver (`com.google.android.apps.mediashell`) unless I tell you I don't cast: on most sets casting dies with that receiver, and its loss looks like a Wi-Fi fault to the user.
+- Never leave an HTTP proxy configured. Read `settings get global global_http_proxy_host`, `global_http_proxy_port` and `http_proxy` before and after the debloat: a proxy on a dead address (commonly `127.0.0.1:9`) fails the connectivity check, so the network never validates and most apps report that they cannot connect to Wi-Fi while YouTube and Netflix still play. Clear it with `settings delete global global_http_proxy_host`, `settings delete global global_http_proxy_port` and `settings put global http_proxy :0`, then confirm `VALIDATED` in `dumpsys connectivity`. Never "fix" this with `captive_portal_mode 0`: it hides the symptom and stops real captive portals from opening.
 - Before touching streaming apps, voice assistant, Chromecast, Miracast or the update service, ask me
   which ones I use with a checklist question and disable only what I don't tick.
 - Run `pm` commands one per shell call, chained commands may silently stop after the first.
@@ -90,17 +92,24 @@ Launcher
   listing the HDMI ports, AV and Live TV, switching via the TV input framework.
 - Personalise it, and ask me before deciding anything:
   - my name, for the greeting ("GOOD NIGHT, <NAME>") and for the welcome splash;
-  - my pincode, so the weather pill knows the place. The launcher asks Open-Meteo for the current
-    temperature and weather code; look the coordinates up once (OpenStreetMap Nominatim is fine) and
-    write them into `config.xml` next to the pincode. The TV only ever talks to Open-Meteo. Keep the
-    pill hidden while the answer is unknown and ask again: after a boot Home starts before the
-    network is up, so the first request fails; retry every few seconds for the first minute, and once
-    more when the network comes up.
+  - my pincode, so the weather widget knows the place. The launcher asks Open-Meteo for the current
+    temperature, weather code and whether it is day; look the coordinates up once (OpenStreetMap
+    Nominatim is fine) and write them into `theme/config.json` next to the pincode. The TV only ever talks
+    to Open-Meteo. Keep the widget hidden while the coordinates are unknown and ask again: after a
+    boot Home starts before the network is up, so the first request fails; retry every few seconds
+    for the first minute, and once more when the network comes up.
   - whether the home screen shows a wallpaper behind the tiles, and if so whether several of them
-    rotate with a slow crossfade. Put the pictures in `assets/wallpapers/`, scaled to at most
-    1920x1080 JPEG so the APK stays small.
-  - a screensaver that shows those same pictures one after another with the time and the date
-    drifting over them (a DreamService), and point the TV's screensaver at it over ADB
+    rotate with a slow crossfade. Put the pictures in `personal-assets/wallpapers/` (git-ignored),
+    make a 320x180 preview and a name/mood for each one, and push the theme folder to the TV (see
+    the theme step below); the APK only ships the stock pictures in `assets/`.
+  - "Show home widgets underneath the pills?" (skippable, on by default): one row with today's
+    weather over two cells and a RAM and a storage ring gauge, aligned to the pills' left and right
+    edges. Ask which ones I want (`widgets_enabled`, `widget_weather_enabled`,
+    `widget_ram_enabled`, `widget_storage_enabled`). Display only: no focus, no key presses, and the
+    dock and the tile grid keep their place.
+  - a screensaver that shows those same pictures one after another with the time, the date and a
+    Now Playing line (while music plays) drifting over them every fifteen seconds (a DreamService),
+    and point the TV's screensaver at it over ADB
     (`settings put secure screensaver_components <package>/.WallpaperDream; settings put secure
     screensaver_enabled 1`). Keep a plain clock screensaver too, let any key end either one, and ask
     me which should be the default.
@@ -108,9 +117,9 @@ Launcher
     instead of every pixel) and switch the greeting, the clock, the date, the button labels and the
     screensaver's clock between light and dark type to match what is under them. It has to flip over
     mid-crossfade, not after it.
-  - a welcome splash once per boot, with my name in the message ("Welcome back <NAME>"), a picture
-    from `assets/splash/`, and the message near the bottom of the screen, lined up left, centre or
-    right. The message fills the screen width, so set its own gravity for that: the layout gravity
+  - a welcome splash once per boot, with my name in the message ("Welcome back <NAME>"), my picture
+    from `theme/splash.jpg` (falling back to the stock `assets/splash/splash.jpg`), and the message near the
+    bottom of the screen, lined up left, centre or right. The message fills the screen width, so set its own gravity for that: the layout gravity
     does nothing on a full-width TextView. Once per boot, not once per
     app start: read the boot count from `Settings.Global.BOOT_COUNT` and keep a flag in the app's
     own storage, with `SystemClock.elapsedRealtime()` as the fallback when the setting is missing.
@@ -134,10 +143,17 @@ Verify
   re-enable any app and how to change the dock order or the wallpaper.
 
 Personalise
-- Put the personal answers in `launcher/app/src/main/res/values/config.xml`, and nowhere else: the
-  name, the pincode and the coordinates go there, not into the code and not into the README.
-- Ask me for a wallpaper and a splash picture, or leave the bundled ones alone. If I give pictures,
-  copy them into the assets folder scaled down; never keep the originals in the repository.
+- Ask me for my name, pincode, avatar, wallpapers and splash picture, and ask for a name and mood for
+  each wallpaper. Build the portable theme folder with `tools/wallpapers.py`: `theme/config.json`,
+  optional `theme/avatar.jpg` and `theme/splash.jpg`, `theme/wallpapers/w-01.jpg`, 320x180
+  `theme/thumbs/t-01.jpg` and `theme/wallpapers.json`.
+- Write the personal answers into `personal-assets/theme/config.json` (git-ignored), not into
+  `launcher/.../values/config.xml`, the code or the README. Push the folder with
+  `tools/theme_push.py` or `tools/theme.sh`; the launcher reads it from its own external files
+  directory and needs no storage permission.
+- Keep personal pictures and the theme out of the APK: build the release and check that no personal
+  file or hash is inside it. Re-push `personal-assets/theme` after every install, and tell me that
+  uninstalling `com.gathin.tvhome` deletes the pushed data.
 - Keep the whole thing reversible: the launcher, the Live TV app and every package you disabled
   have to be restorable with the scripts you hand me.
 

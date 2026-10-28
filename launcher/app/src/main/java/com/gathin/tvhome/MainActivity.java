@@ -56,7 +56,6 @@ import androidx.dynamicanimation.animation.SpringAnimation;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -272,17 +271,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         root = findViewById(R.id.root);
         root.setBackgroundColor(cfg.backgroundColor);
-        // The launcher's own wallpapers; the picture a theme brought is only used when there are none.
+        // The theme's wallpapers, with the stock pictures as the fallback.
         wallpapers = new Wallpapers(this);
         wallpapers.setListener(wallpaperListener);
-        if (cfg.useWallpaper) {
-            if (!wallpapers.isEmpty()) {
-                wallpapers.attach(root);
-                wallpapersAttached = true;
-                wallpapers.start(cfg.wallpaperIntervalSeconds);
-            } else if (cfg.wallpaper != null) {
-                showWallpaper(cfg.wallpaper);
-            }
+        if (cfg.useWallpaper && !wallpapers.isEmpty()) {
+            wallpapers.attach(root);
+            wallpapersAttached = true;
+            wallpapers.start(cfg.wallpaperIntervalSeconds);
         }
         // A faint shade over the top of the wallpaper, so the clock and the pills stay readable.
         addScrim();
@@ -491,35 +486,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnWifi.setNextFocusDownId(down);
         btnSettings.setNextFocusDownId(down);
         grid.setNextFocusUpId(media ? R.id.nowPrevious : View.NO_ID);
-    }
-
-    /**
-     * A theme's full-screen picture behind everything. Decoded once, downsampled to the screen so a 4K
-     * JPEG costs a 1080p bitmap at most (about 8 MB), which is the price of a wallpaper on a 1 GB TV.
-     */
-    private void showWallpaper(File file) {
-        try {
-            android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-            android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
-            opts.inJustDecodeBounds = true;
-            android.graphics.BitmapFactory.decodeFile(file.getPath(), opts);
-            int sample = 1;
-            while (opts.outWidth / (sample * 2) >= dm.widthPixels && opts.outHeight / (sample * 2) >= dm.heightPixels) sample *= 2;
-            opts.inJustDecodeBounds = false;
-            opts.inSampleSize = sample;
-            opts.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565;   // no alpha needed, half the memory
-            android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeFile(file.getPath(), opts);
-            if (bmp == null) return;
-            android.widget.ImageView wall = new android.widget.ImageView(this);
-            wall.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
-            wall.setImageBitmap(bmp);
-            root.addView(wall, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            // The text on top of it needs to know how bright the picture is.
-            wallpaperGrid = Contrast.sampleScreen(bmp, dm.widthPixels, dm.heightPixels);
-            updateContrast();
-        } catch (Exception | OutOfMemoryError e) {
-            // A bad or huge picture must never take the home screen down; the plain colour stays.
-        }
     }
 
     // ---- contrast on the wallpaper -------------------------------------------------------------------

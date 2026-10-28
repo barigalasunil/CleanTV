@@ -23,7 +23,7 @@ import android.widget.TextView;
  */
 public class SplashActivity extends Activity {
 
-    /** The picture in the app's assets. */
+    /** The stock picture in the app's assets, used when the theme has no splash. */
     private static final String IMAGE = "splash/splash.jpg";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -38,7 +38,9 @@ public class SplashActivity extends Activity {
             finish();
             return;
         }
-        Bitmap picture = decode();   // may be null: the splash is then skipped
+        // The pushed theme picture comes first; a missing or damaged one falls back to the stock splash.
+        Bitmap picture = Theme.decodeScreen(this, Theme.splash(this));
+        if (picture == null) picture = decode();
         if (picture == null) {
             finish();
             return;

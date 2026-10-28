@@ -3,15 +3,11 @@ package com.gathin.tvhome;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Color;
-import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -19,18 +15,14 @@ import java.util.List;
 
 /**
  * The launcher's settings: the values in res/values/config.xml, with an optional overlay read from
- * {@code config.json} in the app's external files directory
- * ({@code /sdcard/Android/data/com.gathin.tvhome/files/}). Every key in the JSON is optional and an
- * unknown or badly typed key is ignored, so a theme can change the dock and the look without a rebuild:
- * {@code tools/theme.sh themes/<name>} pushes a theme folder there and restarts Home.
+ * {@code theme/config.json} in the app's external files directory
+ * ({@code /sdcard/Android/data/com.gathin.tvhome/files/theme/}). Every key in the JSON is optional
+ * and an unknown or badly typed key is ignored, so a theme can change the dock and the look without
+ * a rebuild: {@code tools/theme.sh <theme-folder>} pushes the folder there and restarts Home.
  *
  * Read once in {@link MainActivity#onCreate}; nothing here touches the network.
  */
 final class Config {
-    private static final String TAG = "TvHome.Config";
-    static final String FILE_NAME = "config.json";
-    static final String WALLPAPER_NAME = "wallpaper.jpg";
-
     final List<String> dockApps;
     final List<String> hiddenApps;
     final String liveTvPackage;
@@ -46,8 +38,6 @@ final class Config {
     final boolean showHomeSettingsShortcut;
     /** Background colour behind everything, #RRGGBB; black unless a theme says otherwise. */
     final int backgroundColor;
-    /** Full-screen picture behind the launcher, or null for the plain colour. */
-    final File wallpaper;
     /** Whether the overlay file was present and parsed. */
     final boolean overlayApplied;
     /** The name in the greeting and on the welcome splash; empty when there is none. */
@@ -91,7 +81,7 @@ final class Config {
                    String sourcePanelService, String sourcePanelAction, String inputAction,
                    int columns, int rowsBelowDock,
                    boolean shamsiDate, boolean moduleCards, String vpnApp, boolean showHomeSettingsShortcut, int backgroundColor,
-                   File wallpaper, boolean overlayApplied,
+                   boolean overlayApplied,
                    String greetingName, boolean useWallpaper, int wallpaperIntervalSeconds,
                    boolean screensaverEnabled, int screensaverIntervalSeconds,
                    boolean splashEnabled, String splashMessage, int splashDurationMs,
@@ -113,7 +103,6 @@ final class Config {
         this.vpnApp = vpnApp;
         this.showHomeSettingsShortcut = showHomeSettingsShortcut;
         this.backgroundColor = backgroundColor;
-        this.wallpaper = wallpaper;
         this.overlayApplied = overlayApplied;
         this.greetingName = greetingName;
         this.useWallpaper = useWallpaper;
@@ -179,9 +168,7 @@ final class Config {
         String liveTvApp = res.getString(R.string.live_tv_app_package).trim();
         List<String> liveTvLanguages = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.live_tv_languages)));
 
-        File dir = dir(ctx);
-        File file = dir != null ? new File(dir, FILE_NAME) : null;
-        JSONObject json = read(file);
+        JSONObject json = Theme.readConfig(ctx);
         if (json != null) {
             applied = true;
             dock = stringList(json, "dock_apps", dock);
@@ -218,16 +205,9 @@ final class Config {
             liveTvApp = string(json, "live_tv_app_package", liveTvApp);
             liveTvLanguages = stringList(json, "live_tv_languages", liveTvLanguages);
         }
-        File wallpaper = dir != null ? new File(dir, WALLPAPER_NAME) : null;
-        if (wallpaper != null && !(wallpaper.isFile() && wallpaper.length() > 0)) wallpaper = null;
-        // A theme can also switch the wallpaper off while the file is still there.
-        if (json != null && json.has("wallpaper") && !bool(json, "wallpaper", true)) wallpaper = null;
-        // The picture a theme brought is only used when the launcher has no wallpapers of its own.
-        if (!useWallpaper) wallpaper = null;
-
         return new Config(dock, hidden, liveTv, liveTvAction, panelService, panelAction, inputAction,
                 Math.max(1, columns), Math.max(0, rowsBelow), shamsi, moduleCards, vpn, homeSettings, background,
-                wallpaper, applied,
+                applied,
                 greetingName, useWallpaper, Math.max(1, wallpaperInterval),
                 screensaverEnabled, Math.max(5, screensaverInterval),
                 splashEnabled, splashMessage, splashDuration,
@@ -267,26 +247,6 @@ final class Config {
         if (v instanceof Number) return ((Number) v).doubleValue();
         if (v instanceof String) return number((String) v, fallback);
         return fallback;
-    }
-
-    /** Reads and parses the overlay; any problem means "no overlay", never a crash on the home screen. */
-    private static JSONObject read(File file) {
-        if (file == null || !file.isFile()) return null;
-        if (file.length() > 64 * 1024) {
-            Log.w(TAG, "ignoring " + file + ": larger than 64 KB");
-            return null;
-        }
-        try (InputStream in = new FileInputStream(file)) {
-            byte[] buf = new byte[(int) file.length()];
-            int n = 0, r;
-            while (n < buf.length && (r = in.read(buf, n, buf.length - n)) > 0) n += r;
-            String text = new String(buf, 0, n, StandardCharsets.UTF_8);
-            if (text.startsWith("﻿")) text = text.substring(1);   // Windows editors add a BOM
-            return new JSONObject(text);
-        } catch (Exception e) {
-            Log.w(TAG, "ignoring " + file + ": " + e.getMessage());
-            return null;
-        }
     }
 
     private static String string(JSONObject o, String key, String fallback) {
