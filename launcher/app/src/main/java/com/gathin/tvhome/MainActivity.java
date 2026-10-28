@@ -53,7 +53,6 @@ import androidx.annotation.NonNull;
 import androidx.dynamicanimation.animation.DynamicAnimation;
 import androidx.dynamicanimation.animation.FloatPropertyCompat;
 import androidx.dynamicanimation.animation.SpringAnimation;
-import androidx.dynamicanimation.animation.SpringForce;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -375,7 +374,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         });
         for (SpringAnimation s : new SpringAnimation[]{springX, springY}) {
-            s.setSpring(new SpringForce().setStiffness(260f).setDampingRatio(0.58f));
+            Motion.spring(s);
         }
 
         btnInputs = findViewById(R.id.btnInputs);
@@ -566,7 +565,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             float toClock = brightnessOf(to, clock);
             float toPills = brightnessOf(to, pillRow);
             ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
-            anim.setDuration(Wallpapers.FADE_MS);
+            anim.setDuration(Motion.ms(Wallpapers.FADE_MS));
+            anim.setInterpolator(Motion.EASE_OUT);
             anim.addUpdateListener(a -> {
                 float t = (float) a.getAnimatedValue();
                 setBrightness(Contrast.mix(fromClock, toClock, t), Contrast.mix(fromPills, toPills, t));
@@ -639,6 +639,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onResume() {
         super.onResume();
+        // The owner's animator speed setting can change while the TV is on, so read it per visit.
+        Motion.refresh(this);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(packageReceiver, packageFilter, Context.RECEIVER_NOT_EXPORTED);
         } else {
@@ -789,8 +791,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             springY.cancel();
             glass.setTranslationX(x);
             glass.setTranslationY(y);
-            glass.animate().alpha(1f).setDuration(180).start();
+            glass.animate().cancel();
+            if (Motion.off()) glass.setAlpha(1f);
+            else glass.animate().alpha(1f).setDuration(Motion.ms(Motion.FAST))
+                    .setInterpolator(Motion.EASE_OUT).start();
             glassShown = true;
+        } else if (Motion.off()) {
+            springX.cancel();
+            springY.cancel();
+            glass.setTranslationX(x);
+            glass.setTranslationY(y - glassScrollShift);
         } else {
             springX.animateToFinalPosition(x);
             springY.animateToFinalPosition(y - glassScrollShift);
@@ -822,22 +832,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             heroName.setText(label);
             heroName.setY(y);
             heroName.setTranslationX(0f);
-            heroName.animate().alpha(1f).setDuration(260).start();
+            heroName.animate().alpha(1f).setDuration(Motion.ms(Motion.MEDIUM))
+                    .setInterpolator(Motion.EASE_OUT).start();
             setAmbient(color);
-            ambient.animate().alpha(1f).setDuration(600).start();
+            ambient.animate().alpha(1f).setDuration(Motion.ms(Motion.SLOW))
+                    .setInterpolator(Motion.EASE_OUT).start();
             heroShown = true;
         } else if (changed) {
-            heroName.animate().alpha(0f).translationX(-12 * density).setDuration(120).withEndAction(() -> {
-                heroName.setText(label);
-                heroName.setY(y);
-                heroName.setTranslationX(12 * density);
-                heroName.animate().alpha(1f).translationX(0f).setDuration(200).start();
-            }).start();
+            heroName.animate().alpha(0f).translationX(-12 * density)
+                    .setDuration(Motion.ms(Motion.FAST)).setInterpolator(Motion.EASE_OUT)
+                    .withEndAction(() -> {
+                        heroName.setText(label);
+                        heroName.setY(y);
+                        heroName.setTranslationX(12 * density);
+                        heroName.animate().alpha(1f).translationX(0f)
+                                .setDuration(Motion.ms(Motion.MEDIUM))
+                                .setInterpolator(Motion.EASE_OUT).start();
+                    }).start();
             if (color != ambientColor) {
-                ambient.animate().alpha(0.35f).setDuration(200).withEndAction(() -> {
-                    setAmbient(color);
-                    ambient.animate().alpha(1f).setDuration(500).start();
-                }).start();
+                ambient.animate().alpha(0.35f).setDuration(Motion.ms(Motion.MEDIUM))
+                        .setInterpolator(Motion.EASE_OUT).withEndAction(() -> {
+                            setAmbient(color);
+                            ambient.animate().alpha(1f).setDuration(Motion.ms(Motion.SLOW))
+                                    .setInterpolator(Motion.EASE_OUT).start();
+                        }).start();
             }
         } else {
             heroName.setY(y);
@@ -853,14 +871,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void hideHero() {
         if (!heroShown) return;
         heroShown = false;
-        heroName.animate().alpha(0f).setDuration(160).start();
-        ambient.animate().alpha(0f).setDuration(300).start();
+        heroName.animate().alpha(0f).setDuration(Motion.ms(Motion.FAST))
+                .setInterpolator(Motion.EASE_OUT).start();
+        ambient.animate().alpha(0f).setDuration(Motion.ms(Motion.MEDIUM))
+                .setInterpolator(Motion.EASE_OUT).start();
     }
 
     private void hideGlass() {
         if (!glassShown) return;
         glassShown = false;
-        glass.animate().alpha(0f).setDuration(160).start();
+        glass.animate().alpha(0f).setDuration(Motion.ms(Motion.FAST))
+                .setInterpolator(Motion.EASE_OUT).start();
     }
 
     // ---- navigation ------------------------------------------------------------------------------
@@ -955,10 +976,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         View row = getLayoutInflater().inflate(R.layout.item_menu, rows, false);
         ((ImageView) row.findViewById(R.id.icon)).setImageResource(iconRes);
         ((TextView) row.findViewById(R.id.title)).setText(text);
-        row.setOnClickListener(v -> {
-            popup.dismiss();
-            action.run();
-        });
+        row.setOnClickListener(v -> closePopup(popup, action));
+        backClosesMenu(row, popup);
         rows.addView(row);
     }
 
@@ -983,8 +1002,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         panel.setScaleY(0.94f);
         panel.setTranslationY(-6 * density);
         popup.showAtLocation(root, Gravity.TOP | Gravity.START, x, y);
-        panel.animate().alpha(1f).scaleY(1f).translationY(0f).setDuration(180)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+        panel.animate().alpha(1f).scaleY(1f).translationY(0f)
+                .setDuration(Motion.ms(Motion.FAST)).setInterpolator(Motion.EASE_OUT).start();
     }
 
     private String appLabel(String pkg) {
@@ -1315,6 +1334,39 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         rows.getChildAt(0).requestFocus();
     }
 
+    /** The one way a menu leaves: fade and shrink first, then dismiss. */
+    private void closePopup(PopupWindow popup) {
+        closePopup(popup, null);
+    }
+
+    private void closePopup(PopupWindow popup, Runnable after) {
+        if (popup == null || !popup.isShowing()) {
+            if (after != null) after.run();
+            return;
+        }
+        View panel = popup.getContentView();
+        if (panel == null) {
+            popup.dismiss();
+            if (after != null) after.run();
+            return;
+        }
+        Motion.close(panel, () -> {
+            popup.dismiss();
+            if (after != null) after.run();
+        });
+    }
+
+    /** Back leaves a menu the same way a row does, instead of the popup vanishing. */
+    private void backClosesMenu(View row, PopupWindow popup) {
+        row.setOnKeyListener((v, keyCode, event) -> {
+            if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
+                closePopup(popup);
+                return true;
+            }
+            return false;
+        });
+    }
+
     private PopupWindow glassPopup(View panel, int width) {
         final PopupWindow popup = new PopupWindow(panel, width, ViewGroup.LayoutParams.WRAP_CONTENT, true);
         popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));   // needed for Back to dismiss
@@ -1335,8 +1387,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         panel.setScaleY(0.92f);
         panel.setTranslationY(-8 * density);
         popup.showAsDropDown(anchor, 0, (int) (10 * density), gravity);
-        panel.animate().alpha(1f).scaleY(1f).translationY(0f).setDuration(220)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+        panel.animate().alpha(1f).scaleY(1f).translationY(0f)
+                .setDuration(Motion.ms(Motion.MEDIUM)).setInterpolator(Motion.EASE_OUT).start();
     }
 
     private void addSeparator(LinearLayout rows) {
@@ -1366,10 +1418,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             status.setVisibility(View.GONE);
             dot.setVisibility(View.GONE);
         }
-        row.setOnClickListener(v -> {
-            popup.dismiss();
-            action.run();
-        });
+        row.setOnClickListener(v -> closePopup(popup, action));
+        backClosesMenu(row, popup);
         rows.addView(row);
     }
 

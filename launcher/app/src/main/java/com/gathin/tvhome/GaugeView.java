@@ -1,5 +1,6 @@
 package com.gathin.tvhome;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -22,6 +23,7 @@ final class GaugeView extends View {
     private final Paint arc = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF box = new RectF();
     private float fraction;
+    private ValueAnimator animator;
 
     GaugeView(Context ctx) {
         super(ctx);
@@ -42,6 +44,28 @@ final class GaugeView extends View {
     void setFraction(float value) {
         float f = Math.max(0f, Math.min(1f, value));
         if (Math.abs(f - fraction) < 0.002f) return;
+        apply(f);
+    }
+
+    /**
+     * Moves the arc to a new reading instead of jumping to it, so a five-second widget tick reads
+     * as live. Instant when the owner has animations off, and it keeps the colour thresholds.
+     */
+    void animateTo(float value) {
+        float target = Math.max(0f, Math.min(1f, value));
+        if (Motion.off()) {
+            apply(target);
+            return;
+        }
+        if (animator != null) animator.cancel();
+        animator = ValueAnimator.ofFloat(fraction, target);
+        animator.setDuration(Motion.ms(Motion.MEDIUM));
+        animator.setInterpolator(Motion.EASE_OUT);
+        animator.addUpdateListener(a -> apply((float) a.getAnimatedValue()));
+        animator.start();
+    }
+
+    private void apply(float f) {
         fraction = f;
         arc.setColor(f >= 0.90f ? RED : (f >= 0.75f ? AMBER : NORMAL));
         invalidate();

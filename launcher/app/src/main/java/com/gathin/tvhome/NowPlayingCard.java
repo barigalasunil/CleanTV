@@ -20,7 +20,10 @@ final class NowPlayingCard {
     private final ImageButton play;
     private final ImageButton next;
     private final Runnable onVisibilityChanged;
+    private final float density;
     private Bitmap shownArt;
+    /** What the card is meant to be, which differs from its visibility while it fades. */
+    private boolean shown;
 
     NowPlayingCard(Activity activity, Runnable onVisibilityChanged) {
         ctx = activity;
@@ -33,6 +36,7 @@ final class NowPlayingCard {
         previous = activity.findViewById(R.id.nowPrevious);
         play = activity.findViewById(R.id.nowPlay);
         next = activity.findViewById(R.id.nowNext);
+        density = activity.getResources().getDisplayMetrics().density;
 
         previous.setOnClickListener(v -> MediaNoteService.previous());
         play.setOnClickListener(v -> MediaNoteService.toggle());
@@ -41,9 +45,30 @@ final class NowPlayingCard {
 
     /** Null hides the card; the widget band keeps its size, so nothing else moves. */
     void bind(MediaNoteService.Now now) {
-        int wanted = now == null ? View.GONE : View.VISIBLE;
-        if (card.getVisibility() != wanted) {
-            card.setVisibility(wanted);
+        boolean visible = now != null;
+        if (visible != shown) {
+            shown = visible;
+            card.animate().cancel();
+            if (Motion.off()) {
+                card.setAlpha(visible ? 1f : 0f);
+                card.setTranslationY(0f);
+                card.setVisibility(visible ? View.VISIBLE : View.GONE);
+            } else if (visible) {
+                card.setVisibility(View.VISIBLE);
+                card.setAlpha(0f);
+                card.setTranslationY(8 * density);
+                card.animate().alpha(1f).translationY(0f)
+                        .setDuration(Motion.ms(Motion.FAST))
+                        .setInterpolator(Motion.EASE_OUT).start();
+            } else {
+                // Fades out before it goes: the card never disappears in a single frame. The end
+                // action re-checks, because the card may have been asked back during the fade.
+                card.animate().alpha(0f).translationY(-8 * density)
+                        .setDuration(Motion.ms(Motion.FAST))
+                        .setInterpolator(Motion.EASE_OUT)
+                        .withEndAction(() -> card.setVisibility(shown ? View.VISIBLE : View.GONE))
+                        .start();
+            }
             onVisibilityChanged.run();
         }
         if (now == null) return;

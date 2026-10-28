@@ -73,7 +73,8 @@ public class WallpaperDream extends DreamService {
             float fromBrightness = brightnessUnder(from);
             float toBrightness = brightnessUnder(to);
             ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
-            anim.setDuration(Wallpapers.FADE_MS);
+            anim.setDuration(Motion.ms(Wallpapers.FADE_MS));
+            anim.setInterpolator(Motion.EASE_OUT);
             anim.addUpdateListener(a -> {
                 float t = (float) a.getAnimatedValue();
                 applyContrast(Contrast.mix(fromBrightness, toBrightness, t));
@@ -145,10 +146,13 @@ public class WallpaperDream extends DreamService {
     public void onDreamingStarted() {
         super.onDreamingStarted();
         MediaNoteService.addListener(mediaListener);
+        // The screensaver honours the same animator speed setting as Home.
+        Motion.refresh(this);
         content.setAlpha(0f);
         content.post(() -> {
             placeClock();
-            content.animate().alpha(1f).setDuration(1200).start();
+            content.animate().alpha(1f).setDuration(Motion.ms(Motion.SLOW))
+                    .setInterpolator(Motion.EASE_OUT).start();
         });
         if (wallpapers != null) wallpapers.startMs(intervalMs);
         handler.postDelayed(tick, MOVE_MS);
@@ -183,10 +187,20 @@ public class WallpaperDream extends DreamService {
     }
 
     private void moveClock() {
-        content.animate().alpha(0f).setDuration(900).withEndAction(() -> {
+        content.animate().cancel();
+        if (Motion.off()) {
             placeClock();
-            content.animate().alpha(1f).setDuration(1200).start();
-        }).start();
+            content.setAlpha(1f);
+            return;
+        }
+        // The card fades where it is, comes back at the new spot: one motion, from Motion.
+        content.animate().alpha(0f).setDuration(Motion.ms(Motion.SLOW))
+                .setInterpolator(Motion.EASE_OUT)
+                .withEndAction(() -> {
+                    placeClock();
+                    content.animate().alpha(1f).setDuration(Motion.ms(Motion.SLOW))
+                            .setInterpolator(Motion.EASE_OUT).start();
+                }).start();
     }
 
     /** A random spot that keeps the whole clock on screen. */

@@ -267,9 +267,9 @@ final class Widgets {
         if (ramCell == null) return;
         long[] memory = SysInfo.memory(activity);
         if (memory[1] <= 0) return;
-        ramGauge.setFraction(SysInfo.fraction(memory));
-        ramUsed.setText(activity.getString(R.string.widget_gb, SysInfo.gigabytes(memory[0])));
-        ramTotal.setText(activity.getString(R.string.widget_of_total, SysInfo.gigabytes(memory[1])));
+        ramGauge.animateTo(SysInfo.fraction(memory));
+        update(ramUsed, activity.getString(R.string.widget_gb, SysInfo.gigabytes(memory[0])));
+        update(ramTotal, activity.getString(R.string.widget_of_total, SysInfo.gigabytes(memory[1])));
         ramCell.setContentDescription(activity.getString(R.string.widget_ram_description,
                 SysInfo.gigabytes(memory[0]), SysInfo.gigabytes(memory[1])));
     }
@@ -279,9 +279,9 @@ final class Widgets {
         if (storageCell == null) return;
         long[] storage = SysInfo.storage();
         if (storage[1] <= 0) return;
-        storageGauge.setFraction(SysInfo.fraction(storage));
-        storageUsed.setText(activity.getString(R.string.widget_gb, SysInfo.gigabytes(storage[0])));
-        storageTotal.setText(activity.getString(R.string.widget_of_total, SysInfo.gigabytes(storage[1])));
+        storageGauge.animateTo(SysInfo.fraction(storage));
+        update(storageUsed, activity.getString(R.string.widget_gb, SysInfo.gigabytes(storage[0])));
+        update(storageTotal, activity.getString(R.string.widget_of_total, SysInfo.gigabytes(storage[1])));
         storageCell.setContentDescription(activity.getString(R.string.widget_storage_description,
                 SysInfo.gigabytes(storage[0]), SysInfo.gigabytes(storage[1])));
     }
@@ -291,8 +291,8 @@ final class Widgets {
         if (weatherCell == null || report == null) return;
         String sky = Weather.condition(activity, report.code);
         weatherIcon.setWeather(report.code, report.day);
-        weatherTemp.setText(report.temperatureText());
-        weatherCondition.setText(sky);
+        update(weatherTemp, report.temperatureText());
+        update(weatherCondition, sky);
         weatherCell.setContentDescription(activity.getString(R.string.weather_description,
                 report.temperatureText(), sky));
     }
@@ -301,6 +301,19 @@ final class Widgets {
     void tick(long tickCount) {
         if (ramCell != null && tickCount % 5 == 0) updateRam();
         if (storageCell != null && tickCount % 30 == 0) updateStorage();
+    }
+
+    /** A value that really changed fades in, so a tick reads as motion instead of a silent swap. */
+    private void update(TextView view, String value) {
+        if (view.getText().toString().equals(value)) return;
+        view.setText(value);
+        if (Motion.off()) {
+            view.setAlpha(1f);
+            return;
+        }
+        view.setAlpha(0.35f);
+        view.animate().alpha(1f).setDuration(Motion.ms(Motion.FAST))
+                .setInterpolator(Motion.EASE_OUT).start();
     }
 
     private int px(float dp) {
