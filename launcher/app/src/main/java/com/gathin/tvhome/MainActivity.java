@@ -41,6 +41,7 @@ import android.view.Window;
 import android.view.animation.AnimationUtils;
 import android.view.animation.LayoutAnimationController;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
@@ -58,9 +59,13 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * tvOS style home: black, a pinned dock row, an app grid, and one glass highlight that springs between tiles.
@@ -177,6 +182,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private PopupWindow openPopup;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    /** Decodes the picker's 320x180 previews off the main thread, one at a time. */
+    private final ExecutorService thumbLoader = Executors.newSingleThreadExecutor();
     /** Refreshes the network pill when the connection changes: at boot Wi-Fi often connects after Home is shown. */
     private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
         @Override
@@ -705,6 +712,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onDestroy() {
         super.onDestroy();
         if (wallpapers != null) wallpapers.stop();
+        thumbLoader.shutdownNow();
         if (avatarBitmap != null && !avatarBitmap.isRecycled()) avatarBitmap.recycle();
         avatarBitmap = null;
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
@@ -1148,62 +1156,199 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         rows.addView(row);
     }
 
+    /**
+     * The wallpaper picker: a full-width frosted panel with one horizontal strip of previews per
+     * mood, and the three ways to use them: rotate all, rotate this mood, or pin one picture. The
+     * choice is saved and applied at once, with the same crossfade the home screen always uses.
+     */
     private void showWallpaperPicker() {
-        List<Theme.Wallpaper> pictures = Theme.wallpapers(this);
+        List<Wallpapers.Picture> pictures = Wallpapers.pictures(this);
         if (pictures.isEmpty()) {
             Toast.makeText(this, R.string.no_wallpapers, Toast.LENGTH_SHORT).show();
             return;
         }
         View panel = getLayoutInflater().inflate(R.layout.popup_wallpapers, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
-        final PopupWindow popup = glassPopup(panel, (int) (430 * density));
-        String selected = Wallpapers.selected(this);
+        int width = Math.max((int) (320 * density), root.getWidth() - (int) (64 * density));
+        final PopupWindow popup = glassPopup(panel, width);
+        WallpaperChoice choice = Wallpapers.choice(this);
 
-        addWallpaperRow(rows, popup, null, getString(R.string.wallpapers_auto), "", selected == null, () -> {
-            Wallpapers.select(this, null);
-            wallpapers.followClock(wallpaperIntervalSeconds);
-        });
-        for (Theme.Wallpaper picture : pictures) {
-            addWallpaperRow(rows, popup, picture.thumb != null ? picture.thumb : picture.file,
-                    picture.name, picture.mood, picture.key().equals(selected), () -> {
-                        Wallpapers.select(this, picture.key());
-                        wallpapers.showSelected();
-                        Toast.makeText(this, getString(R.string.wallpaper_selected, picture.name),
-                                Toast.LENGTH_SHORT).show();
-                    });
+        View modeRow = addWallpaperModeRow(rows, popup, getString(R.string.rotate_all), choice.isAll(),
+                () -> applyWallpaperChoice(WallpaperChoice.all()));
+        modeRow.setId(View.generateViewId());
+        List<View> chips = new ArrayList<>();
+        List<List<View>> strips = new ArrayList<>();
+
+        // One strip per mood, in the order the index lists them; pictures without a mood go together.
+        Map<String, List<Wallpapers.Picture>> moods = new LinkedHashMap<>();
+        for (Wallpapers.Picture picture : pictures) {
+            String mood = picture.mood == null ? "" : picture.mood;
+            List<Wallpapers.Picture> group = moods.get(mood);
+            if (group == null) {
+                group = new ArrayList<>();
+                moods.put(mood, group);
+            }
+            group.add(picture);
         }
+        for (Map.Entry<String, List<Wallpapers.Picture>> group : moods.entrySet()) {
+            final String mood = group.getKey();
+            View header = getLayoutInflater().inflate(R.layout.item_wallpaper_mood, rows, false);
+            ((TextView) header.findViewById(R.id.moodTitle)).setText(
+                    mood.isEmpty() ? getString(R.string.mood_other) : mood);
+            View rotate = header.findViewById(R.id.moodRotate);
+            header.findViewById(R.id.moodCheck).setVisibility(
+                    choice.isMood() && mood.equalsIgnoreCase(choice.mood) ? View.VISIBLE : View.GONE);
+            if (mood.isEmpty()) {
+                rotate.setVisibility(View.GONE);
+            } else {
+                rotate.setId(View.generateViewId());
+                rotate.setOnClickListener(v -> closePopup(popup,
+                        () -> applyWallpaperChoice(WallpaperChoice.mood(mood))));
+                backClosesMenu(rotate, popup);
+            }
+            rows.addView(header);
+
+            HorizontalScrollView scroll = new HorizontalScrollView(this);
+            scroll.setFocusable(false);
+            scroll.setHorizontalScrollBarEnabled(false);
+            scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+            scroll.setClipChildren(false);
+            LinearLayout strip = new LinearLayout(this);
+            strip.setOrientation(LinearLayout.HORIZONTAL);
+            strip.setClipChildren(false);
+            strip.setPadding((int) (6 * density), 0, (int) (6 * density), (int) (4 * density));
+            List<View> tiles = new ArrayList<>();
+            for (Wallpapers.Picture picture : group.getValue()) {
+                View tile = wallpaperTile(strip, popup, picture,
+                        choice.isPin() && picture.key.equals(choice.key));
+                tiles.add(tile);
+                strip.addView(tile);
+            }
+            scroll.addView(strip, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            rows.addView(scroll);
+            if (!mood.isEmpty()) {
+                chips.add(rotate);
+                strips.add(tiles);
+            }
+        }
+        wirePickerFocus(modeRow, chips, strips);
 
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         int[] at = new int[2];
         controlPill.getLocationInWindow(at);
-        int room = root.getHeight() - (at[1] + controlPill.getHeight()) - (int) (34 * density);
-        popup.setHeight(Math.min(panel.getMeasuredHeight(), Math.max(room, (int) (160 * density))));
-        dropIn(popup, panel, controlPill, Gravity.END);
+        int[] rootAt = new int[2];
+        root.getLocationInWindow(rootAt);
+        int top = Math.max(0, at[1] - rootAt[1] + controlPill.getHeight() + (int) (16 * density));
+        int room = root.getHeight() - top - (int) (24 * density);
+        popup.setWidth(width);
+        popup.setHeight(Math.min(panel.getMeasuredHeight(), Math.max(room, (int) (200 * density))));
+        panel.setAlpha(0f);
+        panel.setPivotY(0f);
+        panel.setScaleY(0.97f);
+        popup.showAtLocation(root, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, top);
+        panel.animate().alpha(1f).scaleY(1f).setDuration(Motion.ms(Motion.MEDIUM))
+                .setInterpolator(Motion.EASE_OUT).start();
         rows.getChildAt(0).requestFocus();
     }
 
-    private void addWallpaperRow(LinearLayout rows, PopupWindow popup, java.io.File thumb, String title,
-                                 String mood, boolean selected, Runnable action) {
-        View row = getLayoutInflater().inflate(R.layout.item_wallpaper, rows, false);
-        ImageView image = row.findViewById(R.id.thumb);
-        if (thumb == null) {
-            image.setImageResource(R.drawable.ic_wallpaper);
-            image.setScaleType(ImageView.ScaleType.CENTER);
-            image.setPadding((int) (42 * density), (int) (24 * density),
-                    (int) (42 * density), (int) (24 * density));
-            image.setImageTintList(android.content.res.ColorStateList.valueOf(0xD9FFFFFF));
-        } else {
-            Bitmap bitmap = Theme.decode(thumb, (int) (320 * density), (int) (180 * density));
-            if (bitmap != null) image.setImageBitmap(bitmap);
-        }
+    /** One of the three ways to use the pictures; the check shows which one is saved. */
+    private View addWallpaperModeRow(LinearLayout rows, PopupWindow popup, String title,
+                                     boolean active, Runnable action) {
+        View row = getLayoutInflater().inflate(R.layout.item_wallpaper_mode, rows, false);
         ((TextView) row.findViewById(R.id.title)).setText(title);
-        TextView moodView = row.findViewById(R.id.mood);
-        if (mood.isEmpty()) moodView.setVisibility(View.GONE);
-        else moodView.setText(mood);
-        row.findViewById(R.id.check).setVisibility(selected ? View.VISIBLE : View.GONE);
+        row.findViewById(R.id.check).setVisibility(active ? View.VISIBLE : View.GONE);
         row.setOnClickListener(v -> closePopup(popup, action));
         backClosesMenu(row, popup);
         rows.addView(row);
+        return row;
+    }
+
+    /**
+     * D-pad order for the picker: Down from Rotate all drops into the first mood chip, the chip's
+     * Down or Right enters its strip, and Down from any preview moves to the next mood's chip. The
+     * default focus search otherwise jumps straight into a strip and never reaches the chips.
+     */
+    private void wirePickerFocus(View modeRow, List<View> chips, List<List<View>> strips) {
+        modeRow.setNextFocusDownId(chips.isEmpty() ? View.NO_ID : chips.get(0).getId());
+        for (int i = 0; i < chips.size(); i++) {
+            View chip = chips.get(i);
+            List<View> tiles = strips.get(i);
+            if (tiles.isEmpty()) continue;
+            chip.setNextFocusUpId(i == 0 ? modeRow.getId() : chips.get(i - 1).getId());
+            chip.setNextFocusDownId(tiles.get(0).getId());
+            chip.setNextFocusRightId(tiles.get(0).getId());
+            int nextChip = i + 1 < chips.size() ? chips.get(i + 1).getId() : View.NO_ID;
+            for (int t = 0; t < tiles.size(); t++) {
+                View tile = tiles.get(t);
+                tile.setNextFocusUpId(chip.getId());
+                tile.setNextFocusDownId(nextChip);
+                if (t == 0) tile.setNextFocusLeftId(chip.getId());
+            }
+        }
+    }
+
+    /** A preview in a mood strip: OK pins this picture, the spring makes the focused one stand out. */
+    private View wallpaperTile(ViewGroup strip, PopupWindow popup,
+                               Wallpapers.Picture picture, boolean active) {
+        View tile = getLayoutInflater().inflate(R.layout.item_wallpaper, strip, false);
+        tile.setId(View.generateViewId());
+        ImageView thumb = tile.findViewById(R.id.thumb);
+        thumb.setTag(picture.key);
+        loadWallpaperThumb(thumb, picture);
+        ((TextView) tile.findViewById(R.id.title)).setText(picture.name);
+        tile.findViewById(R.id.check).setVisibility(active ? View.VISIBLE : View.GONE);
+        tile.setOnClickListener(v -> closePopup(popup,
+                () -> applyWallpaperChoice(WallpaperChoice.pin(picture.key))));
+        backClosesMenu(tile, popup);
+        focusSpring(tile);
+        return tile;
+    }
+
+    /** Decodes one preview at 320x180 off the main thread, and drops it again if the tile went away. */
+    private void loadWallpaperThumb(ImageView view, Wallpapers.Picture picture) {
+        view.setImageDrawable(null);
+        thumbLoader.execute(() -> {
+            Bitmap bitmap = picture.stock()
+                    ? Wallpapers.decodeAsset(this, picture.asset, 320, 180)
+                    : Theme.decode(picture.thumb != null ? picture.thumb : picture.file, 320, 180);
+            handler.post(() -> {
+                if (bitmap == null || bitmap.isRecycled()) return;
+                if (picture.key.equals(view.getTag())) view.setImageBitmap(bitmap);
+                else bitmap.recycle();
+            });
+        });
+    }
+
+    /** The focused preview grows on the shared Motion spring, instead of a linear scale. */
+    private void focusSpring(View tile) {
+        SpringAnimation scaleX = new SpringAnimation(tile, DynamicAnimation.SCALE_X);
+        SpringAnimation scaleY = new SpringAnimation(tile, DynamicAnimation.SCALE_Y);
+        Motion.spring(scaleX);
+        Motion.spring(scaleY);
+        tile.setOnFocusChangeListener((v, focused) -> {
+            float scale = focused ? 1.07f : 1f;
+            if (Motion.off()) {
+                v.setScaleX(scale);
+                v.setScaleY(scale);
+                return;
+            }
+            scaleX.animateToFinalPosition(scale);
+            scaleY.animateToFinalPosition(scale);
+        });
+    }
+
+    /** Saves the owner's mode and shows the first picture of it straight away. */
+    private void applyWallpaperChoice(WallpaperChoice choice) {
+        wallpapers.applyChoice(choice, wallpaperIntervalSeconds);
+        if (!choice.isPin()) return;
+        for (Wallpapers.Picture picture : Wallpapers.pictures(this)) {
+            if (picture.key.equals(choice.key)) {
+                Toast.makeText(this, getString(R.string.wallpaper_selected, picture.name),
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
     }
 
     private void updateGreeting() {

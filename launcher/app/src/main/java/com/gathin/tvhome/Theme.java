@@ -6,9 +6,7 @@ import android.graphics.BitmapFactory;
 import android.util.DisplayMetrics;
 import android.util.Log;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
-import org.json.JSONTokener;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -16,10 +14,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 /**
  * The owner's theme, pushed over ADB into the app's external files directory:
@@ -110,50 +106,29 @@ final class Theme {
     /**
      * The wallpapers a theme brought, in the order given by {@code wallpapers.json}; without that
      * file every picture in {@code wallpapers/} is listed by name. Missing or corrupt entries are
-     * left out, never fatal.
+     * left out, never fatal, and the list is capped at {@link ThemeIndex#MAX}.
      */
     static List<Wallpaper> wallpapers(Context ctx) {
         File pictures = wallpapersDir(ctx);
         if (pictures == null) return Collections.emptyList();
         File thumbs = thumbsDir(ctx);
-        List<Wallpaper> out = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
 
-        JSONArray index = readIndex(ctx);
-        if (index != null) {
-            for (int i = 0; i < index.length(); i++) {
-                JSONObject item = index.optJSONObject(i);
-                if (item == null) continue;
-                String base = baseName(item.optString("file", ""));
-                if (base == null || !seen.add(base.toLowerCase(Locale.US))) continue;
-                File picture = new File(pictures, base);
-                if (!isPicture(picture)) continue;
-                String thumbName = baseName(item.optString("thumb", ""));
-                if (thumbName == null) thumbName = defaultThumb(base);
-                File thumb = thumbName == null ? null : new File(thumbs, thumbName);
-                if (thumb != null && !isPicture(thumb)) thumb = null;
-                String name = item.optString("name", "").trim();
-                if (name.isEmpty()) name = withoutExtension(base);
-                String mood = item.optString("mood", "").trim();
-                out.add(new Wallpaper(picture, thumb, name, mood));
+        List<String> names = new ArrayList<>();
+        File[] files = pictures.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (isPicture(file)) names.add(file.getName());
             }
         }
-        if (!out.isEmpty()) return out;
+        List<ThemeIndex.Entry> entries = ThemeIndex.parse(readTextOrNull(index(ctx)), names::contains);
+        if (entries.isEmpty()) entries = ThemeIndex.scan(names);
 
-        File[] files = pictures.listFiles();
-        if (files == null) return Collections.emptyList();
-        List<File> sorted = new ArrayList<>();
-        for (File file : files) {
-            if (isPicture(file)) sorted.add(file);
-        }
-        Collections.sort(sorted, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-        for (File picture : sorted) {
-            String base = picture.getName();
-            if (!seen.add(base.toLowerCase(Locale.US))) continue;
-            String thumbName = defaultThumb(base);
-            File thumb = thumbName == null ? null : new File(thumbs, thumbName);
+        List<Wallpaper> out = new ArrayList<>();
+        for (ThemeIndex.Entry entry : entries) {
+            File picture = new File(pictures, entry.file);
+            File thumb = entry.thumb == null ? null : new File(thumbs, entry.thumb);
             if (thumb != null && !isPicture(thumb)) thumb = null;
-            out.add(new Wallpaper(picture, thumb, withoutExtension(base), ""));
+            out.add(new Wallpaper(picture, thumb, entry.name, entry.mood));
         }
         return out;
     }
@@ -242,17 +217,14 @@ final class Theme {
         return isPicture(file) ? file : null;
     }
 
-    private static JSONArray readIndex(Context ctx) {
-        File file = index(ctx);
+    private static String readTextOrNull(File file) {
         if (file == null || !file.isFile() || file.length() <= 0 || file.length() > 256 * 1024) return null;
         try {
-            Object root = new JSONTokener(readText(file)).nextValue();
-            if (root instanceof JSONArray) return (JSONArray) root;
-            if (root instanceof JSONObject) return ((JSONObject) root).optJSONArray("wallpapers");
+            return readText(file);
         } catch (Exception e) {
             Log.w(TAG, "ignoring " + file + ": " + e.getMessage());
+            return null;
         }
-        return null;
     }
 
     private static String readText(File file) throws Exception {
@@ -268,25 +240,7 @@ final class Theme {
     }
 
     /** The file name part of a theme-relative path; null for empty or unsafe names. */
-    private static String baseName(String value) {
-        if (value == null) return null;
-        String name = value.trim().replace('\\', '/');
-        if (name.isEmpty() || name.contains("..")) return null;
-        int slash = name.lastIndexOf('/');
-        if (slash >= 0) name = name.substring(slash + 1);
-        if (name.isEmpty() || name.startsWith(".")) return null;
-        return name;
-    }
-
-    private static String defaultThumb(String picture) {
-        String name = picture;
-        if (name.toLowerCase(Locale.US).startsWith("w-")) name = "t-" + name.substring(2);
-        int dot = name.lastIndexOf('.');
-        return dot > 0 ? name.substring(0, dot) + ".jpg" : name + ".jpg";
-    }
-
-    private static String withoutExtension(String name) {
-        int dot = name.lastIndexOf('.');
-        return dot > 0 ? name.substring(0, dot) : name;
+    static String baseName(String value) {
+        return ThemeIndex.name(value);
     }
 }

@@ -1,66 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="84dp"
-    android:orientation="horizontal"
-    android:gravity="center_vertical"
-    android:padding="8dp"
-    android:background="@drawable/input_row_bg"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="6dp"
     android:focusable="true"
     android:clickable="true">
 
-    <ImageView
-        android:id="@+id/thumb"
-        android:layout_width="116dp"
-        android:layout_height="66dp"
-        android:background="@drawable/album_art_bg"
-        android:clipToOutline="true"
-        android:scaleType="centerCrop"
-        android:contentDescription="@null" />
+    <FrameLayout
+        android:layout_width="152dp"
+        android:layout_height="86dp">
 
-    <!-- The name and mood follow the row's focus, so they turn dark on the focused row. -->
-    <LinearLayout
-        android:layout_width="0dp"
+        <ImageView
+            android:id="@+id/thumb"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/album_art_bg"
+            android:clipToOutline="true"
+            android:scaleType="centerCrop"
+            android:contentDescription="@null" />
+
+        <ImageView
+            android:id="@+id/check"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="5dp"
+            android:padding="3dp"
+            android:background="@drawable/check_badge"
+            android:src="@drawable/ic_check"
+            android:tint="#FF111111"
+            android:visibility="gone"
+            android:contentDescription="@null" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="152dp"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:layout_marginStart="14dp"
-        android:orientation="vertical"
-        android:duplicateParentState="true">
-
-        <TextView
-            android:id="@+id/title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="@drawable/pill_text"
-            android:duplicateParentState="true"
-            android:textSize="16sp"
-            android:fontFamily="@font/outfit"
-            android:fontVariationSettings="'wght' 500"
-            android:singleLine="true"
-            android:ellipsize="end" />
-
-        <TextView
-            android:id="@+id/mood"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:textColor="@drawable/pill_text_dim"
-            android:duplicateParentState="true"
-            android:textSize="11sp"
-            android:fontFamily="@font/outfit"
-            android:fontVariationSettings="'wght' 400"
-            android:singleLine="true"
-            android:ellipsize="end" />
-    </LinearLayout>
-
-    <ImageView
-        android:id="@+id/check"
-        android:layout_width="20dp"
-        android:layout_height="20dp"
-        android:layout_marginStart="10dp"
-        android:tint="@drawable/pill_text"
-        android:duplicateParentState="true"
-        android:src="@drawable/ic_check"
-        android:visibility="gone"
-        android:contentDescription="@null" />
+        android:layout_marginTop="6dp"
+        android:gravity="center_horizontal"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:textColor="#FFFFFFFF"
+        android:textSize="12sp"
+        android:fontFamily="@font/outfit"
+        android:fontVariationSettings="'wght' 500" />
 </LinearLayout>
