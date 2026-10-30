@@ -165,8 +165,8 @@ final class Config {
         boolean widgetWeather = res.getBoolean(R.bool.widget_weather_enabled);
         boolean widgetRam = res.getBoolean(R.bool.widget_ram_enabled);
         boolean widgetStorage = res.getBoolean(R.bool.widget_storage_enabled);
-        double weatherLat = number(res.getString(R.string.weather_lat));
-        double weatherLon = number(res.getString(R.string.weather_lon));
+        double weatherLat = ConfigOverlay.number(res.getString(R.string.weather_lat));
+        double weatherLon = ConfigOverlay.number(res.getString(R.string.weather_lon));
         boolean pillShowTime = res.getBoolean(R.bool.pill_show_time);
         boolean liveTvEnabled = res.getBoolean(R.bool.live_tv_enabled);
         String liveTvApp = res.getString(R.string.live_tv_app_package).trim();
@@ -175,40 +175,40 @@ final class Config {
         JSONObject json = Theme.readConfig(ctx);
         if (json != null) {
             applied = true;
-            dock = stringList(json, "dock_apps", dock);
-            hidden = stringList(json, "hidden_apps", hidden);
-            liveTv = string(json, "live_tv_package", liveTv);
-            liveTvAction = string(json, "live_tv_action", liveTvAction);
-            panelService = string(json, "source_panel_service", panelService);
-            panelAction = string(json, "source_panel_action", panelAction);
-            inputAction = string(json, "input_action", inputAction);
-            columns = integer(json, "columns", columns, 1, 8);
-            rowsBelow = integer(json, "rows_below_dock", rowsBelow, 0, 3);
-            shamsi = bool(json, "shamsi_date", shamsi);
-            moduleCards = bool(json, "module_cards", moduleCards);
-            vpn = string(json, "vpn_app", vpn);
-            homeSettings = bool(json, "show_home_settings_shortcut", homeSettings);
+            dock = ConfigOverlay.stringList(json, "dock_apps", dock);
+            hidden = ConfigOverlay.stringList(json, "hidden_apps", hidden);
+            liveTv = ConfigOverlay.string(json, "live_tv_package", liveTv);
+            liveTvAction = ConfigOverlay.string(json, "live_tv_action", liveTvAction);
+            panelService = ConfigOverlay.string(json, "source_panel_service", panelService);
+            panelAction = ConfigOverlay.string(json, "source_panel_action", panelAction);
+            inputAction = ConfigOverlay.string(json, "input_action", inputAction);
+            columns = ConfigOverlay.integer(json, "columns", columns, 1, 8);
+            rowsBelow = ConfigOverlay.integer(json, "rows_below_dock", rowsBelow, 0, 3);
+            shamsi = ConfigOverlay.bool(json, "shamsi_date", shamsi);
+            moduleCards = ConfigOverlay.bool(json, "module_cards", moduleCards);
+            vpn = ConfigOverlay.string(json, "vpn_app", vpn);
+            homeSettings = ConfigOverlay.bool(json, "show_home_settings_shortcut", homeSettings);
             background = color(json, "background_color", background);
-            greetingName = string(json, "greeting_name", greetingName);
-            useWallpaper = bool(json, "use_wallpaper", useWallpaper);
-            wallpaperInterval = integer(json, "wallpaper_interval_seconds", wallpaperInterval, 5, 86400);
-            screensaverEnabled = bool(json, "screensaver_enabled", screensaverEnabled);
-            screensaverInterval = integer(json, "screensaver_interval_seconds", screensaverInterval, 5, 3600);
-            splashEnabled = bool(json, "splash_enabled", splashEnabled);
-            splashMessage = string(json, "splash_message", splashMessage);
-            splashDuration = integer(json, "splash_duration_ms", splashDuration, 500, 30000);
-            splashBottom = integer(json, "splash_text_bottom_percent", splashBottom, 0, 60);
-            splashAlign = string(json, "splash_text_align", splashAlign);
-            widgetsEnabled = bool(json, "widgets_enabled", widgetsEnabled);
-            widgetWeather = bool(json, "widget_weather_enabled", widgetWeather);
-            widgetRam = bool(json, "widget_ram_enabled", widgetRam);
-            widgetStorage = bool(json, "widget_storage_enabled", widgetStorage);
-            weatherLat = coordinate(json, "weather_lat", weatherLat);
-            weatherLon = coordinate(json, "weather_lon", weatherLon);
-            pillShowTime = bool(json, "pill_show_time", pillShowTime);
-            liveTvEnabled = bool(json, "live_tv_enabled", liveTvEnabled);
-            liveTvApp = string(json, "live_tv_app_package", liveTvApp);
-            liveTvLanguages = stringList(json, "live_tv_languages", liveTvLanguages);
+            greetingName = ConfigOverlay.string(json, "greeting_name", greetingName);
+            useWallpaper = ConfigOverlay.bool(json, "use_wallpaper", useWallpaper);
+            wallpaperInterval = ConfigOverlay.integer(json, "wallpaper_interval_seconds", wallpaperInterval, 5, 86400);
+            screensaverEnabled = ConfigOverlay.bool(json, "screensaver_enabled", screensaverEnabled);
+            screensaverInterval = ConfigOverlay.integer(json, "screensaver_interval_seconds", screensaverInterval, 5, 3600);
+            splashEnabled = ConfigOverlay.bool(json, "splash_enabled", splashEnabled);
+            splashMessage = ConfigOverlay.string(json, "splash_message", splashMessage);
+            splashDuration = ConfigOverlay.integer(json, "splash_duration_ms", splashDuration, 500, 30000);
+            splashBottom = ConfigOverlay.integer(json, "splash_text_bottom_percent", splashBottom, 0, 60);
+            splashAlign = ConfigOverlay.string(json, "splash_text_align", splashAlign);
+            widgetsEnabled = ConfigOverlay.bool(json, "widgets_enabled", widgetsEnabled);
+            widgetWeather = ConfigOverlay.bool(json, "widget_weather_enabled", widgetWeather);
+            widgetRam = ConfigOverlay.bool(json, "widget_ram_enabled", widgetRam);
+            widgetStorage = ConfigOverlay.bool(json, "widget_storage_enabled", widgetStorage);
+            weatherLat = ConfigOverlay.coordinate(json, "weather_lat", weatherLat);
+            weatherLon = ConfigOverlay.coordinate(json, "weather_lon", weatherLon);
+            pillShowTime = ConfigOverlay.bool(json, "pill_show_time", pillShowTime);
+            liveTvEnabled = ConfigOverlay.bool(json, "live_tv_enabled", liveTvEnabled);
+            liveTvApp = ConfigOverlay.string(json, "live_tv_app_package", liveTvApp);
+            liveTvLanguages = ConfigOverlay.stringList(json, "live_tv_languages", liveTvLanguages);
         }
         return new Config(dock, hidden, liveTv, liveTvAction, panelService, panelAction, inputAction,
                 Math.max(1, columns), Math.max(0, rowsBelow), shamsi, moduleCards, vpn, homeSettings, background,
@@ -216,59 +216,9 @@ final class Config {
                 greetingName, useWallpaper, Math.max(1, wallpaperInterval),
                 screensaverEnabled, Math.max(5, screensaverInterval),
                 splashEnabled, splashMessage, splashDuration,
-                clamp(splashBottom, 0, 60), align(splashAlign),
+                ConfigOverlay.clamp(splashBottom, 0, 60), ConfigOverlay.align(splashAlign),
                 widgetsEnabled, widgetWeather, widgetRam, widgetStorage, weatherLat, weatherLon,
                 pillShowTime, liveTvEnabled, liveTvApp, liveTvLanguages);
-    }
-
-    /** The splash message alignment, always one of the three the layout understands. */
-    static String align(String value) {
-        String v = value == null ? "" : value.trim().toLowerCase(java.util.Locale.US);
-        if ("left".equals(v) || "right".equals(v)) return v;
-        return "center";
-    }
-
-    private static int clamp(int v, int min, int max) {
-        return v < min ? min : (v > max ? max : v);
-    }
-
-    /** Parses a coordinate from the config; NaN when it is missing or not a number. */
-    private static double number(String value) {
-        return number(value, Double.NaN);
-    }
-
-    private static double number(String value, double fallback) {
-        if (value == null) return fallback;
-        try {
-            return Double.parseDouble(value.trim());
-        } catch (NumberFormatException e) {
-            return fallback;
-        }
-    }
-
-    /** A coordinate written as a JSON number (the usual case) or as a string. */
-    private static double coordinate(JSONObject o, String key, double fallback) {
-        Object v = o.opt(key);
-        if (v instanceof Number) return ((Number) v).doubleValue();
-        if (v instanceof String) return number((String) v, fallback);
-        return fallback;
-    }
-
-    private static String string(JSONObject o, String key, String fallback) {
-        Object v = o.opt(key);
-        return v instanceof String ? ((String) v).trim() : fallback;
-    }
-
-    private static boolean bool(JSONObject o, String key, boolean fallback) {
-        Object v = o.opt(key);
-        return v instanceof Boolean ? (Boolean) v : fallback;
-    }
-
-    private static int integer(JSONObject o, String key, int fallback, int min, int max) {
-        Object v = o.opt(key);
-        if (!(v instanceof Number)) return fallback;
-        int i = ((Number) v).intValue();
-        return i < min || i > max ? fallback : i;
     }
 
     private static int color(JSONObject o, String key, int fallback) {
@@ -282,15 +232,4 @@ final class Config {
         }
     }
 
-    private static List<String> stringList(JSONObject o, String key, List<String> fallback) {
-        Object v = o.opt(key);
-        if (!(v instanceof JSONArray)) return fallback;
-        JSONArray a = (JSONArray) v;
-        List<String> out = new ArrayList<>();
-        for (int i = 0; i < a.length(); i++) {
-            Object item = a.opt(i);
-            if (item instanceof String && !((String) item).trim().isEmpty()) out.add(((String) item).trim());
-        }
-        return out;
-    }
 }

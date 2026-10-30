@@ -204,18 +204,17 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         int dockCount = Math.min(dockSize, sorted.size());
         List<Entry> head = new ArrayList<>(sorted.subList(0, dockCount));
         List<Entry> tail = new ArrayList<>(sorted.subList(dockCount, sorted.size()));
-        Map<String, Integer> rank = new HashMap<>();
-        for (int i = 0; i < order.size(); i++) rank.put(order.get(i), i);
-        List<Entry> known = new ArrayList<>();
-        List<Entry> extra = new ArrayList<>();
+        Map<String, Entry> byKey = new HashMap<>();
+        List<String> keys = new ArrayList<>();
         for (Entry e : tail) {
-            if (rank.containsKey(key(e))) known.add(e);
-            else extra.add(e);
+            String key = key(e);
+            if (!byKey.containsKey(key)) {
+                byKey.put(key, e);
+                keys.add(key);
+            }
         }
-        known.sort((a, b) -> Integer.compare(rank.get(key(a)), rank.get(key(b))));
-        known.addAll(extra);
         List<Entry> out = new ArrayList<>(head);
-        out.addAll(known);
+        for (String key : AppOrder.merge(order, keys)) out.add(byKey.get(key));
         return out;
     }
 

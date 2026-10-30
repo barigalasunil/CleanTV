@@ -70,9 +70,7 @@ final class Motion {
 
     /** The designed duration, stretched so the motion keeps its speed at any animator scale. */
     static long ms(long designed) {
-        if (known && scale == 0f) return 0L;
-        if (!known || scale == 1f) return designed;
-        return Math.max(1L, Math.round(designed / scale));
+        return MotionScale.ms(designed, known ? scale : 1f);
     }
 
     /** Applies the shared spring to a position animation. */

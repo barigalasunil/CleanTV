@@ -76,19 +76,25 @@ final class Weather {
         return String.format(Locale.US, "%d°", Math.round(value));
     }
 
+    /** The condition word for a weather code; the grouping itself is in {@link WeatherCode}. */
     static String condition(Context ctx, int code) {
-        int res;
-        if (code == 0) res = R.string.weather_clear;
-        else if (code == 1) res = R.string.weather_mainly_clear;
-        else if (code == 2) res = R.string.weather_partly_cloudy;
-        else if (code == 3) res = R.string.weather_cloudy;
-        else if (code == 45 || code == 48) res = R.string.weather_fog;
-        else if (code >= 51 && code <= 57) res = R.string.weather_drizzle;
-        else if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) res = R.string.weather_rain;
-        else if ((code >= 71 && code <= 77) || code == 85 || code == 86) res = R.string.weather_snow;
-        else if (code >= 95) res = R.string.weather_storm;
-        else res = R.string.weather_unknown;
-        return ctx.getString(res);
+        return ctx.getString(resource(code));
+    }
+
+    /** The string resource for a weather code. */
+    private static int resource(int code) {
+        switch (WeatherCode.key(code)) {
+            case WeatherCode.CLEAR: return R.string.weather_clear;
+            case WeatherCode.MAINLY_CLEAR: return R.string.weather_mainly_clear;
+            case WeatherCode.PARTLY_CLOUDY: return R.string.weather_partly_cloudy;
+            case WeatherCode.CLOUDY: return R.string.weather_cloudy;
+            case WeatherCode.FOG: return R.string.weather_fog;
+            case WeatherCode.DRIZZLE: return R.string.weather_drizzle;
+            case WeatherCode.RAIN: return R.string.weather_rain;
+            case WeatherCode.SNOW: return R.string.weather_snow;
+            case WeatherCode.STORM: return R.string.weather_storm;
+            default: return R.string.weather_unknown;
+        }
     }
 
     /** The last reading, even when it is old, so the widget keeps showing it while offline. */
