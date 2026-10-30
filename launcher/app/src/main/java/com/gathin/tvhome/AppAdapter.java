@@ -17,7 +17,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
-import android.view.animation.OvershootInterpolator;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -46,8 +45,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         /** Called for a D-pad direction key on a tile. Return true when handled (focus stays put). */
         boolean onTileVerticalKey(int position, int keyCode);
 
-        /** Called when a tile is held down. The dock ignores it; a grid tile starts being moved. */
-        void onTileLongPressed(int position);
+        /** Called when a tile is held down. The dock ignores it; a grid tile opens its menu. */
+        void onTileLongPressed(int position, View card);
 
         /** Called when a tile is pressed. Return true when handled (the app is not opened). */
         boolean onTileClicked(int position);
@@ -113,8 +112,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
     private final int dockSize;
     /** Dock order (config.xml dock_apps, or a theme's config.json). */
     private final List<String> favourites;
-    /** Never shown as tiles (res/values/config.xml, hidden_apps). */
-    private final Set<String> hidden;
+    /** Never shown as tiles (config.xml hidden_apps plus the ones hidden from a tile menu). */
+    private Set<String> hidden;
     /** The optional Live TV app: pinned as the first tile of the grid, under the dock. */
     private final String liveTvApp;
     private final boolean showHomeSettings;
@@ -131,6 +130,11 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         // Tiles keep their identity across reload(), so a focused tile stays on its app instead of
         // its view being rebound to whatever app now sits in that slot.
         setHasStableIds(true);
+    }
+
+    /** Replaces the display-only hidden list before the next reload. */
+    void setHidden(Set<String> packages) {
+        this.hidden = packages == null ? Collections.emptySet() : new HashSet<>(packages);
     }
 
     /**
@@ -200,18 +204,17 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         int dockCount = Math.min(dockSize, sorted.size());
         List<Entry> head = new ArrayList<>(sorted.subList(0, dockCount));
         List<Entry> tail = new ArrayList<>(sorted.subList(dockCount, sorted.size()));
-        Map<String, Integer> rank = new HashMap<>();
-        for (int i = 0; i < order.size(); i++) rank.put(order.get(i), i);
-        List<Entry> known = new ArrayList<>();
-        List<Entry> extra = new ArrayList<>();
+        Map<String, Entry> byKey = new HashMap<>();
+        List<String> keys = new ArrayList<>();
         for (Entry e : tail) {
-            if (rank.containsKey(key(e))) known.add(e);
-            else extra.add(e);
+            String key = key(e);
+            if (!byKey.containsKey(key)) {
+                byKey.put(key, e);
+                keys.add(key);
+            }
         }
-        known.sort((a, b) -> Integer.compare(rank.get(key(a)), rank.get(key(b))));
-        known.addAll(extra);
         List<Entry> out = new ArrayList<>(head);
-        out.addAll(known);
+        for (String key : AppOrder.merge(order, keys)) out.add(byKey.get(key));
         return out;
     }
 
@@ -310,8 +313,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         h.card.setOnLongClickListener(v -> {
             int pos = h.getBindingAdapterPosition();
             if (pos == RecyclerView.NO_POSITION || listener == null) return false;
-            // The dock is fixed; a grid tile starts being moved around.
-            listener.onTileLongPressed(pos);
+            // The dock is fixed; a grid tile opens its menu.
+            listener.onTileLongPressed(pos, h.card);
             return true;
         });
     }
@@ -360,6 +363,11 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
     String labelAt(int position) {
         return position >= 0 && position < items.size() ? items.get(position).label : "";
+    }
+
+    /** Package name of the tile at a position, or null. */
+    String packageAt(int position) {
+        return position >= 0 && position < items.size() ? items.get(position).pkg : null;
     }
 
     /** A vivid colour sampled from the app's banner (or icon), cached per entry; a card's accent when it set one. */
@@ -452,13 +460,16 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
 
             card.setOnFocusChangeListener((view, focused) -> {
                 float s = focused ? FOCUS_SCALE : 1.0f;
+                // One shared curve and one shared duration per direction: nothing is allocated here.
                 view.animate().scaleX(s).scaleY(s)
-                        .setDuration(focused ? 260 : 180)
-                        .setInterpolator(new OvershootInterpolator(focused ? 1.6f : 0f))
+                        .setDuration(Motion.ms(focused ? Motion.MEDIUM : Motion.FAST))
+                        .setInterpolator(focused ? Motion.FOCUS : Motion.EASE_OUT)
                         .start();
                 name.animate().alpha(focused ? 1f : 0f)
                         .translationY(focused ? density * 4f : -density * 6f)
-                        .setDuration(220).start();
+                        .setDuration(Motion.ms(Motion.FAST))
+                        .setInterpolator(Motion.EASE_OUT)
+                        .start();
                 int pos = getBindingAdapterPosition();
                 if (focused && listener != null && pos != RecyclerView.NO_POSITION) {
                     listener.onTileFocused(pos, view);

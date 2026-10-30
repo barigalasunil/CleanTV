@@ -44,7 +44,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
-                android:layout_toStartOf="@+id/topButtons"
+                android:layout_toStartOf="@+id/controlPill"
                 android:layout_marginEnd="16dp"
                 android:orientation="vertical">
 
@@ -148,49 +148,245 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/topButtons"
+                android:id="@+id/controlPill"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="46dp"
                 android:layout_alignParentEnd="true"
                 android:layout_alignBottom="@id/leftBlock"
                 android:layout_marginBottom="6dp"
-                android:orientation="horizontal">
+                android:paddingStart="8dp"
+                android:paddingEnd="15dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:background="@drawable/pill_bg"
+                android:focusable="true"
+                android:clickable="true"
+                android:nextFocusDown="@+id/grid">
 
-                <TextView
-                    android:id="@+id/btnInputs"
-                    style="@style/TopButton"
-                    android:text="@string/inputs"
-                    android:drawableStart="@drawable/ic_input"
-                    android:nextFocusDown="@+id/grid" />
+                <FrameLayout
+                    android:id="@+id/avatarFrame"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/avatar_circle"
+                    android:clipToOutline="true">
 
-                <TextView
-                    android:id="@+id/btnWifi"
-                    style="@style/TopButton"
-                    android:maxWidth="180dp"
-                    android:singleLine="true"
-                    android:ellipsize="end"
-                    android:text="@string/wifi"
-                    android:drawableStart="@drawable/ic_wifi"
-                    android:nextFocusDown="@+id/grid" />
+                    <ImageView
+                        android:id="@+id/avatar"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="@string/avatar"
+                        android:visibility="gone" />
 
-                <!-- Weather: hidden until the first reading arrives. -->
-                <TextView
-                    android:id="@+id/btnWeather"
-                    style="@style/TopButton"
-                    android:maxWidth="140dp"
-                    android:singleLine="true"
-                    android:ellipsize="end"
-                    android:visibility="gone"
-                    android:contentDescription="@string/weather"
-                    android:nextFocusDown="@+id/grid" />
+                    <ImageView
+                        android:id="@+id/avatarPlaceholder"
+                        android:layout_width="19dp"
+                        android:layout_height="19dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_avatar"
+                        android:tint="#FFFFFFFF"
+                        android:contentDescription="@null" />
 
-                <TextView
-                    android:id="@+id/btnSettings"
-                    style="@style/TopButton"
-                    android:text="@string/settings"
-                    android:drawableStart="@drawable/ic_settings"
-                    android:nextFocusDown="@+id/grid" />
+                    <!-- Without a photo: the first letter of the greeting name on the tinted circle. -->
+                    <TextView
+                        android:id="@+id/avatarInitial"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:textColor="@drawable/pill_text"
+                        android:duplicateParentState="true"
+                        android:textSize="15sp"
+                        android:fontFamily="@font/outfit"
+                        android:fontVariationSettings="'wght' 500"
+                        android:includeFontPadding="false"
+                        android:visibility="gone"
+                        android:contentDescription="@string/avatar" />
+                </FrameLayout>
+
+                <TextClock
+                    android:id="@+id/pillTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="9dp"
+                    android:format12Hour="h:mm"
+                    android:format24Hour="HH:mm"
+                    android:textColor="@drawable/pill_text"
+                    android:duplicateParentState="true"
+                    android:textSize="16sp"
+                    android:fontFamily="@font/outfit"
+                    android:fontVariationSettings="'wght' 500"
+                    android:letterSpacing="0.01"
+                    android:includeFontPadding="false"
+                    android:singleLine="true" />
             </LinearLayout>
+
+            <!-- Now Playing: under the clock, as tall as a widget cell. Sized in Widgets.java. -->
+            <LinearLayout
+                android:id="@+id/nowPlayingCard"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_alignParentStart="true"
+                android:layout_below="@id/controlPill"
+                android:layout_marginTop="6dp"
+                android:orientation="vertical"
+                android:padding="10dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/nowLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:singleLine="true"
+                    android:text="@string/now_playing"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="9sp"
+                    android:fontFamily="@font/outfit"
+                    android:fontVariationSettings="'wght' 500"
+                    android:letterSpacing="0.2"
+                    android:textAllCaps="true" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <FrameLayout
+                        android:id="@+id/nowArtFrame"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:background="@drawable/album_art_bg"
+                        android:clipToOutline="true">
+
+                        <ImageView
+                            android:id="@+id/nowArt"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:contentDescription="@null" />
+
+                        <ImageView
+                            android:id="@+id/nowArtIcon"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_music_note"
+                            android:tint="#80FFFFFF"
+                            android:contentDescription="@null" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:layout_marginStart="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/nowTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:singleLine="true"
+                            android:ellipsize="end"
+                            android:textColor="#F2FFFFFF"
+                            android:textSize="15sp"
+                            android:fontFamily="@font/outfit"
+                            android:fontVariationSettings="'wght' 500" />
+
+                        <TextView
+                            android:id="@+id/nowArtist"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:singleLine="true"
+                            android:ellipsize="end"
+                            android:textColor="#8CFFFFFF"
+                            android:textSize="10sp"
+                            android:fontFamily="@font/outfit"
+                            android:fontVariationSettings="'wght' 400" />
+
+                        <Space
+                            android:layout_width="match_parent"
+                            android:layout_height="0dp"
+                            android:layout_weight="1" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="22dp"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <ImageButton
+                                android:id="@+id/nowPrevious"
+                                android:layout_width="24dp"
+                                android:layout_height="22dp"
+                                android:padding="5dp"
+                                android:background="@drawable/media_button_bg"
+                                android:src="@drawable/ic_media_previous"
+                                android:tint="@drawable/pill_text"
+                                android:scaleType="fitCenter"
+                                android:contentDescription="@string/media_previous"
+                                android:focusable="true"
+                                android:clickable="true"
+                                android:nextFocusRight="@+id/nowPlay"
+                                android:nextFocusUp="@+id/controlPill"
+                                android:nextFocusDown="@+id/grid" />
+
+                            <ImageButton
+                                android:id="@+id/nowPlay"
+                                android:layout_width="27dp"
+                                android:layout_height="22dp"
+                                android:layout_marginStart="6dp"
+                                android:padding="5dp"
+                                android:background="@drawable/media_button_bg"
+                                android:src="@drawable/ic_media_play"
+                                android:tint="@drawable/pill_text"
+                                android:scaleType="fitCenter"
+                                android:contentDescription="@string/media_play"
+                                android:focusable="true"
+                                android:clickable="true"
+                                android:nextFocusLeft="@+id/nowPrevious"
+                                android:nextFocusRight="@+id/nowNext"
+                                android:nextFocusUp="@+id/controlPill"
+                                android:nextFocusDown="@+id/grid" />
+
+                            <ImageButton
+                                android:id="@+id/nowNext"
+                                android:layout_width="24dp"
+                                android:layout_height="22dp"
+                                android:layout_marginStart="6dp"
+                                android:padding="5dp"
+                                android:background="@drawable/media_button_bg"
+                                android:src="@drawable/ic_media_next"
+                                android:tint="@drawable/pill_text"
+                                android:scaleType="fitCenter"
+                                android:contentDescription="@string/media_next"
+                                android:focusable="true"
+                                android:clickable="true"
+                                android:nextFocusLeft="@+id/nowPlay"
+                                android:nextFocusUp="@+id/controlPill"
+                                android:nextFocusDown="@+id/grid" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Home widgets: anchored under the pills, filled in by Widgets.java. Never focusable. -->
+            <LinearLayout
+                android:id="@+id/widgetRow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="81dp"
+                android:layout_alignParentEnd="true"
+                android:layout_below="@id/controlPill"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal"
+                android:focusable="false"
+                android:clickable="false"
+                android:descendantFocusability="blocksDescendants"
+                android:importantForAccessibility="no" />
         </RelativeLayout>
 
         <!-- The wrapper clips at the grid's edge; the grid itself must not clip so scaled tiles can overflow their cells. -->

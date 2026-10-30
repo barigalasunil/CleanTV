@@ -3,15 +3,11 @@ package com.gathin.tvhome;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Color;
-import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -19,18 +15,14 @@ import java.util.List;
 
 /**
  * The launcher's settings: the values in res/values/config.xml, with an optional overlay read from
- * {@code config.json} in the app's external files directory
- * ({@code /sdcard/Android/data/com.gathin.tvhome/files/}). Every key in the JSON is optional and an
- * unknown or badly typed key is ignored, so a theme can change the dock and the look without a rebuild:
- * {@code tools/theme.sh themes/<name>} pushes a theme folder there and restarts Home.
+ * {@code theme/config.json} in the app's external files directory
+ * ({@code /sdcard/Android/data/com.gathin.tvhome/files/theme/}). Every key in the JSON is optional
+ * and an unknown or badly typed key is ignored, so a theme can change the dock and the look without
+ * a rebuild: {@code tools/theme.sh <theme-folder>} pushes the folder there and restarts Home.
  *
  * Read once in {@link MainActivity#onCreate}; nothing here touches the network.
  */
 final class Config {
-    private static final String TAG = "TvHome.Config";
-    static final String FILE_NAME = "config.json";
-    static final String WALLPAPER_NAME = "wallpaper.jpg";
-
     final List<String> dockApps;
     final List<String> hiddenApps;
     final String liveTvPackage;
@@ -46,8 +38,6 @@ final class Config {
     final boolean showHomeSettingsShortcut;
     /** Background colour behind everything, #RRGGBB; black unless a theme says otherwise. */
     final int backgroundColor;
-    /** Full-screen picture behind the launcher, or null for the plain colour. */
-    final File wallpaper;
     /** Whether the overlay file was present and parsed. */
     final boolean overlayApplied;
     /** The name in the greeting and on the welcome splash; empty when there is none. */
@@ -70,12 +60,18 @@ final class Config {
     final int splashTextBottomPercent;
     /** Where the splash message sits horizontally: center, left or right. */
     final String splashTextAlign;
-    /** Whether the weather pill is shown. */
-    final boolean weatherEnabled;
+    /** Whether the row of home widgets under the top buttons is shown at all. */
+    final boolean widgetsEnabled;
+    /** Whether the weather, RAM and storage widgets are each drawn. */
+    final boolean widgetWeather;
+    final boolean widgetRam;
+    final boolean widgetStorage;
     /** Latitude of the place the weather is for, or NaN when it is not known. */
     final double weatherLat;
     /** Longitude of the place the weather is for, or NaN when it is not known. */
     final double weatherLon;
+    /** Whether the avatar pill shows the time beside the avatar. */
+    final boolean pillShowTime;
     /** Whether the optional Live TV app is wanted. */
     final boolean liveTvEnabled;
     /** The package of that app, pinned as the first tile of the grid; empty when it is not wanted. */
@@ -87,12 +83,13 @@ final class Config {
                    String sourcePanelService, String sourcePanelAction, String inputAction,
                    int columns, int rowsBelowDock,
                    boolean shamsiDate, boolean moduleCards, String vpnApp, boolean showHomeSettingsShortcut, int backgroundColor,
-                   File wallpaper, boolean overlayApplied,
+                   boolean overlayApplied,
                    String greetingName, boolean useWallpaper, int wallpaperIntervalSeconds,
                    boolean screensaverEnabled, int screensaverIntervalSeconds,
                    boolean splashEnabled, String splashMessage, int splashDurationMs,
                    int splashTextBottomPercent, String splashTextAlign,
-                   boolean weatherEnabled, double weatherLat, double weatherLon,
+                   boolean widgetsEnabled, boolean widgetWeather, boolean widgetRam, boolean widgetStorage,
+                   double weatherLat, double weatherLon, boolean pillShowTime,
                    boolean liveTvEnabled, String liveTvAppPackage, List<String> liveTvLanguages) {
         this.dockApps = Collections.unmodifiableList(dockApps);
         this.hiddenApps = Collections.unmodifiableList(hiddenApps);
@@ -108,7 +105,6 @@ final class Config {
         this.vpnApp = vpnApp;
         this.showHomeSettingsShortcut = showHomeSettingsShortcut;
         this.backgroundColor = backgroundColor;
-        this.wallpaper = wallpaper;
         this.overlayApplied = overlayApplied;
         this.greetingName = greetingName;
         this.useWallpaper = useWallpaper;
@@ -120,9 +116,13 @@ final class Config {
         this.splashDurationMs = splashDurationMs;
         this.splashTextBottomPercent = splashTextBottomPercent;
         this.splashTextAlign = splashTextAlign;
-        this.weatherEnabled = weatherEnabled;
+        this.widgetsEnabled = widgetsEnabled;
+        this.widgetWeather = widgetWeather;
+        this.widgetRam = widgetRam;
+        this.widgetStorage = widgetStorage;
         this.weatherLat = weatherLat;
         this.weatherLon = weatherLon;
+        this.pillShowTime = pillShowTime;
         this.liveTvEnabled = liveTvEnabled;
         this.liveTvAppPackage = liveTvEnabled ? liveTvAppPackage : "";
         this.liveTvLanguages = Collections.unmodifiableList(liveTvLanguages);
@@ -161,127 +161,64 @@ final class Config {
         int splashDuration = res.getInteger(R.integer.splash_duration_ms);
         int splashBottom = res.getInteger(R.integer.splash_text_bottom_percent);
         String splashAlign = res.getString(R.string.splash_text_align).trim();
-        boolean weatherEnabled = res.getBoolean(R.bool.weather_enabled);
-        double weatherLat = number(res.getString(R.string.weather_lat));
-        double weatherLon = number(res.getString(R.string.weather_lon));
+        boolean widgetsEnabled = res.getBoolean(R.bool.widgets_enabled);
+        boolean widgetWeather = res.getBoolean(R.bool.widget_weather_enabled);
+        boolean widgetRam = res.getBoolean(R.bool.widget_ram_enabled);
+        boolean widgetStorage = res.getBoolean(R.bool.widget_storage_enabled);
+        double weatherLat = ConfigOverlay.number(res.getString(R.string.weather_lat));
+        double weatherLon = ConfigOverlay.number(res.getString(R.string.weather_lon));
+        boolean pillShowTime = res.getBoolean(R.bool.pill_show_time);
         boolean liveTvEnabled = res.getBoolean(R.bool.live_tv_enabled);
         String liveTvApp = res.getString(R.string.live_tv_app_package).trim();
         List<String> liveTvLanguages = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.live_tv_languages)));
 
-        File dir = dir(ctx);
-        File file = dir != null ? new File(dir, FILE_NAME) : null;
-        JSONObject json = read(file);
+        JSONObject json = Theme.readConfig(ctx);
         if (json != null) {
             applied = true;
-            dock = stringList(json, "dock_apps", dock);
-            hidden = stringList(json, "hidden_apps", hidden);
-            liveTv = string(json, "live_tv_package", liveTv);
-            liveTvAction = string(json, "live_tv_action", liveTvAction);
-            panelService = string(json, "source_panel_service", panelService);
-            panelAction = string(json, "source_panel_action", panelAction);
-            inputAction = string(json, "input_action", inputAction);
-            columns = integer(json, "columns", columns, 1, 8);
-            rowsBelow = integer(json, "rows_below_dock", rowsBelow, 0, 3);
-            shamsi = bool(json, "shamsi_date", shamsi);
-            moduleCards = bool(json, "module_cards", moduleCards);
-            vpn = string(json, "vpn_app", vpn);
-            homeSettings = bool(json, "show_home_settings_shortcut", homeSettings);
+            dock = ConfigOverlay.stringList(json, "dock_apps", dock);
+            hidden = ConfigOverlay.stringList(json, "hidden_apps", hidden);
+            liveTv = ConfigOverlay.string(json, "live_tv_package", liveTv);
+            liveTvAction = ConfigOverlay.string(json, "live_tv_action", liveTvAction);
+            panelService = ConfigOverlay.string(json, "source_panel_service", panelService);
+            panelAction = ConfigOverlay.string(json, "source_panel_action", panelAction);
+            inputAction = ConfigOverlay.string(json, "input_action", inputAction);
+            columns = ConfigOverlay.integer(json, "columns", columns, 1, 8);
+            rowsBelow = ConfigOverlay.integer(json, "rows_below_dock", rowsBelow, 0, 3);
+            shamsi = ConfigOverlay.bool(json, "shamsi_date", shamsi);
+            moduleCards = ConfigOverlay.bool(json, "module_cards", moduleCards);
+            vpn = ConfigOverlay.string(json, "vpn_app", vpn);
+            homeSettings = ConfigOverlay.bool(json, "show_home_settings_shortcut", homeSettings);
             background = color(json, "background_color", background);
-            greetingName = string(json, "greeting_name", greetingName);
-            useWallpaper = bool(json, "use_wallpaper", useWallpaper);
-            wallpaperInterval = integer(json, "wallpaper_interval_seconds", wallpaperInterval, 5, 86400);
-            screensaverEnabled = bool(json, "screensaver_enabled", screensaverEnabled);
-            screensaverInterval = integer(json, "screensaver_interval_seconds", screensaverInterval, 5, 3600);
-            splashEnabled = bool(json, "splash_enabled", splashEnabled);
-            splashMessage = string(json, "splash_message", splashMessage);
-            splashDuration = integer(json, "splash_duration_ms", splashDuration, 500, 30000);
-            splashBottom = integer(json, "splash_text_bottom_percent", splashBottom, 0, 60);
-            splashAlign = string(json, "splash_text_align", splashAlign);
-            weatherEnabled = bool(json, "weather_enabled", weatherEnabled);
-            weatherLat = number(string(json, "weather_lat", String.valueOf(weatherLat)), weatherLat);
-            weatherLon = number(string(json, "weather_lon", String.valueOf(weatherLon)), weatherLon);
-            liveTvEnabled = bool(json, "live_tv_enabled", liveTvEnabled);
-            liveTvApp = string(json, "live_tv_app_package", liveTvApp);
-            liveTvLanguages = stringList(json, "live_tv_languages", liveTvLanguages);
+            greetingName = ConfigOverlay.string(json, "greeting_name", greetingName);
+            useWallpaper = ConfigOverlay.bool(json, "use_wallpaper", useWallpaper);
+            wallpaperInterval = ConfigOverlay.integer(json, "wallpaper_interval_seconds", wallpaperInterval, 5, 86400);
+            screensaverEnabled = ConfigOverlay.bool(json, "screensaver_enabled", screensaverEnabled);
+            screensaverInterval = ConfigOverlay.integer(json, "screensaver_interval_seconds", screensaverInterval, 5, 3600);
+            splashEnabled = ConfigOverlay.bool(json, "splash_enabled", splashEnabled);
+            splashMessage = ConfigOverlay.string(json, "splash_message", splashMessage);
+            splashDuration = ConfigOverlay.integer(json, "splash_duration_ms", splashDuration, 500, 30000);
+            splashBottom = ConfigOverlay.integer(json, "splash_text_bottom_percent", splashBottom, 0, 60);
+            splashAlign = ConfigOverlay.string(json, "splash_text_align", splashAlign);
+            widgetsEnabled = ConfigOverlay.bool(json, "widgets_enabled", widgetsEnabled);
+            widgetWeather = ConfigOverlay.bool(json, "widget_weather_enabled", widgetWeather);
+            widgetRam = ConfigOverlay.bool(json, "widget_ram_enabled", widgetRam);
+            widgetStorage = ConfigOverlay.bool(json, "widget_storage_enabled", widgetStorage);
+            weatherLat = ConfigOverlay.coordinate(json, "weather_lat", weatherLat);
+            weatherLon = ConfigOverlay.coordinate(json, "weather_lon", weatherLon);
+            pillShowTime = ConfigOverlay.bool(json, "pill_show_time", pillShowTime);
+            liveTvEnabled = ConfigOverlay.bool(json, "live_tv_enabled", liveTvEnabled);
+            liveTvApp = ConfigOverlay.string(json, "live_tv_app_package", liveTvApp);
+            liveTvLanguages = ConfigOverlay.stringList(json, "live_tv_languages", liveTvLanguages);
         }
-        File wallpaper = dir != null ? new File(dir, WALLPAPER_NAME) : null;
-        if (wallpaper != null && !(wallpaper.isFile() && wallpaper.length() > 0)) wallpaper = null;
-        // A theme can also switch the wallpaper off while the file is still there.
-        if (json != null && json.has("wallpaper") && !bool(json, "wallpaper", true)) wallpaper = null;
-        // The picture a theme brought is only used when the launcher has no wallpapers of its own.
-        if (!useWallpaper) wallpaper = null;
-
         return new Config(dock, hidden, liveTv, liveTvAction, panelService, panelAction, inputAction,
                 Math.max(1, columns), Math.max(0, rowsBelow), shamsi, moduleCards, vpn, homeSettings, background,
-                wallpaper, applied,
+                applied,
                 greetingName, useWallpaper, Math.max(1, wallpaperInterval),
                 screensaverEnabled, Math.max(5, screensaverInterval),
                 splashEnabled, splashMessage, splashDuration,
-                clamp(splashBottom, 0, 60), align(splashAlign),
-                weatherEnabled, weatherLat, weatherLon,
-                liveTvEnabled, liveTvApp, liveTvLanguages);
-    }
-
-    /** The splash message alignment, always one of the three the layout understands. */
-    static String align(String value) {
-        String v = value == null ? "" : value.trim().toLowerCase(java.util.Locale.US);
-        if ("left".equals(v) || "right".equals(v)) return v;
-        return "center";
-    }
-
-    private static int clamp(int v, int min, int max) {
-        return v < min ? min : (v > max ? max : v);
-    }
-
-    /** Parses a coordinate from the config; NaN when it is missing or not a number. */
-    private static double number(String value) {
-        return number(value, Double.NaN);
-    }
-
-    private static double number(String value, double fallback) {
-        if (value == null) return fallback;
-        try {
-            return Double.parseDouble(value.trim());
-        } catch (NumberFormatException e) {
-            return fallback;
-        }
-    }
-
-    /** Reads and parses the overlay; any problem means "no overlay", never a crash on the home screen. */
-    private static JSONObject read(File file) {
-        if (file == null || !file.isFile()) return null;
-        if (file.length() > 64 * 1024) {
-            Log.w(TAG, "ignoring " + file + ": larger than 64 KB");
-            return null;
-        }
-        try (InputStream in = new FileInputStream(file)) {
-            byte[] buf = new byte[(int) file.length()];
-            int n = 0, r;
-            while (n < buf.length && (r = in.read(buf, n, buf.length - n)) > 0) n += r;
-            String text = new String(buf, 0, n, StandardCharsets.UTF_8);
-            if (text.startsWith("﻿")) text = text.substring(1);   // Windows editors add a BOM
-            return new JSONObject(text);
-        } catch (Exception e) {
-            Log.w(TAG, "ignoring " + file + ": " + e.getMessage());
-            return null;
-        }
-    }
-
-    private static String string(JSONObject o, String key, String fallback) {
-        Object v = o.opt(key);
-        return v instanceof String ? ((String) v).trim() : fallback;
-    }
-
-    private static boolean bool(JSONObject o, String key, boolean fallback) {
-        Object v = o.opt(key);
-        return v instanceof Boolean ? (Boolean) v : fallback;
-    }
-
-    private static int integer(JSONObject o, String key, int fallback, int min, int max) {
-        Object v = o.opt(key);
-        if (!(v instanceof Number)) return fallback;
-        int i = ((Number) v).intValue();
-        return i < min || i > max ? fallback : i;
+                ConfigOverlay.clamp(splashBottom, 0, 60), ConfigOverlay.align(splashAlign),
+                widgetsEnabled, widgetWeather, widgetRam, widgetStorage, weatherLat, weatherLon,
+                pillShowTime, liveTvEnabled, liveTvApp, liveTvLanguages);
     }
 
     private static int color(JSONObject o, String key, int fallback) {
@@ -295,15 +232,4 @@ final class Config {
         }
     }
 
-    private static List<String> stringList(JSONObject o, String key, List<String> fallback) {
-        Object v = o.opt(key);
-        if (!(v instanceof JSONArray)) return fallback;
-        JSONArray a = (JSONArray) v;
-        List<String> out = new ArrayList<>();
-        for (int i = 0; i < a.length(); i++) {
-            Object item = a.opt(i);
-            if (item instanceof String && !((String) item).trim().isEmpty()) out.add(((String) item).trim());
-        }
-        return out;
-    }
 }

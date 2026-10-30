@@ -35,6 +35,26 @@ final class AppOrder {
         return out;
     }
 
+    /**
+     * The saved order laid over the apps that are installed now: the ones the owner placed come
+     * first, in that order, and the rest follow in the order they were given (newly installed apps
+     * therefore land at the end). Keys that are no longer installed are dropped.
+     */
+    static List<String> merge(List<String> saved, List<String> installed) {
+        List<String> out = new ArrayList<>();
+        if (installed == null) return out;
+        if (saved != null) {
+            for (String key : saved) {
+                String clean = key == null ? "" : key.trim();
+                if (!clean.isEmpty() && installed.contains(clean) && !out.contains(clean)) out.add(clean);
+            }
+        }
+        for (String key : installed) {
+            if (key != null && !out.contains(key)) out.add(key);
+        }
+        return out;
+    }
+
     /** Saves the order; only the keys that are still there are kept. */
     static void save(Context ctx, List<String> keys) {
         StringBuilder sb = new StringBuilder();

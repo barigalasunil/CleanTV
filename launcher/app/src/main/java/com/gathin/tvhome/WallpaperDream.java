@@ -11,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextClock;
+import android.widget.TextView;
 
 import java.util.Random;
 
@@ -26,7 +27,7 @@ import java.util.Random;
 public class WallpaperDream extends DreamService {
 
     /** How long the clock stays where it is before it drifts to a new spot. */
-    private static final long MOVE_MS = 60_000L;
+    private static final long MOVE_MS = 15_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Random random = new Random();
@@ -39,6 +40,9 @@ public class WallpaperDream extends DreamService {
     private TextClock time;
     private TextClock meridiem;
     private TextClock date;
+    private View nowCard;
+    private TextView nowTitle;
+    private TextView nowArtist;
     /** How bright the wallpaper on screen is, cell by cell. */
     private float[] grid;
     /** The colours the clock had before the wallpaper was read. */
@@ -69,7 +73,8 @@ public class WallpaperDream extends DreamService {
             float fromBrightness = brightnessUnder(from);
             float toBrightness = brightnessUnder(to);
             ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
-            anim.setDuration(Wallpapers.FADE_MS);
+            anim.setDuration(Motion.ms(Wallpapers.FADE_MS));
+            anim.setInterpolator(Motion.EASE_OUT);
             anim.addUpdateListener(a -> {
                 float t = (float) a.getAnimatedValue();
                 applyContrast(Contrast.mix(fromBrightness, toBrightness, t));
@@ -92,6 +97,9 @@ public class WallpaperDream extends DreamService {
         time = findViewById(R.id.dreamTime);
         meridiem = findViewById(R.id.dreamMeridiem);
         date = findViewById(R.id.dreamDate);
+        nowCard = findViewById(R.id.dreamNowPlaying);
+        nowTitle = findViewById(R.id.dreamNowTitle);
+        nowArtist = findViewById(R.id.dreamNowArtist);
         timeColor = time.getTextColors().getDefaultColor();
         meridiemColor = meridiem.getTextColors().getDefaultColor();
         dateColor = date.getTextColors().getDefaultColor();
@@ -124,13 +132,27 @@ public class WallpaperDream extends DreamService {
         });
     }
 
+    /** The screensaver only reads the player; its keys are never touched from here. */
+    private final MediaNoteService.Listener mediaListener = now -> {
+        if (nowCard == null) return;
+        nowCard.setVisibility(now == null ? View.GONE : View.VISIBLE);
+        if (now == null) return;
+        nowTitle.setText(now.title);
+        nowArtist.setText(now.artist);
+        nowArtist.setVisibility(now.artist.isEmpty() ? View.GONE : View.VISIBLE);
+    };
+
     @Override
     public void onDreamingStarted() {
         super.onDreamingStarted();
+        MediaNoteService.addListener(mediaListener);
+        // The screensaver honours the same animator speed setting as Home.
+        Motion.refresh(this);
         content.setAlpha(0f);
         content.post(() -> {
             placeClock();
-            content.animate().alpha(1f).setDuration(1200).start();
+            content.animate().alpha(1f).setDuration(Motion.ms(Motion.SLOW))
+                    .setInterpolator(Motion.EASE_OUT).start();
         });
         if (wallpapers != null) wallpapers.startMs(intervalMs);
         handler.postDelayed(tick, MOVE_MS);
@@ -139,12 +161,14 @@ public class WallpaperDream extends DreamService {
     @Override
     public void onDreamingStopped() {
         handler.removeCallbacks(tick);
+        MediaNoteService.removeListener(mediaListener);
         super.onDreamingStopped();
     }
 
     @Override
     public void onDetachedFromWindow() {
         handler.removeCallbacks(tick);
+        MediaNoteService.removeListener(mediaListener);
         if (wallpapers != null) {
             wallpapers.stop();
             wallpapers = null;
@@ -163,10 +187,20 @@ public class WallpaperDream extends DreamService {
     }
 
     private void moveClock() {
-        content.animate().alpha(0f).setDuration(900).withEndAction(() -> {
+        content.animate().cancel();
+        if (Motion.off()) {
             placeClock();
-            content.animate().alpha(1f).setDuration(1200).start();
-        }).start();
+            content.setAlpha(1f);
+            return;
+        }
+        // The card fades where it is, comes back at the new spot: one motion, from Motion.
+        content.animate().alpha(0f).setDuration(Motion.ms(Motion.SLOW))
+                .setInterpolator(Motion.EASE_OUT)
+                .withEndAction(() -> {
+                    placeClock();
+                    content.animate().alpha(1f).setDuration(Motion.ms(Motion.SLOW))
+                            .setInterpolator(Motion.EASE_OUT).start();
+                }).start();
     }
 
     /** A random spot that keeps the whole clock on screen. */

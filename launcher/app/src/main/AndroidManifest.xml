@@ -55,6 +55,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Reads the TV's active media sessions for the Now Playing card. Android binds this only
+             after notification access is granted (build-and-install does it over adb). -->
+        <service
+            android:name=".MediaNoteService"
+            android:label="@string/now_playing_service"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- The welcome splash: once per boot, on top of the home screen. -->
         <activity
             android:name=".SplashActivity"

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Launcher configuration. Edit this file, then run launcher/build-and-install.sh.
-  Or leave it and push a theme instead: tools/theme.sh themes/<name> puts a config.json (same keys, see
-  themes/README.md) and an optional wallpaper on the TV, and the launcher overlays it at start.
+  Or leave it and push a theme instead: tools/theme.sh <theme folder> puts theme/config.json (same
+  keys, see themes/README.md), the pictures and optional avatar/splash on the TV, and the launcher
+  overlays it at start. Personal files never go into the APK or this file.
   Package names: on the TV run `pm list packages` (tools/tv.py 'pm list packages').
 
   Everything personal lives here and nowhere else: no name, pincode, IP or package list is hardcoded
@@ -53,9 +54,10 @@
     <!-- Grid rows left visible under the dock on the home screen. 0 = dock sits at the very bottom. -->
     <integer name="rows_below_dock">0</integer>
 
-    <!-- Tiles per row in the grid; the dock always has this many slots. Tiles are 180dp wide at 4 columns and
+    <!-- Tiles per row in the grid; the dock always has this many slots, so this is the dock's size
+         too: 5 gives the five-app dock, 4 the four-app one. Tiles are 180dp wide at 4 columns and
          shrink to fit from 5 up (about 144dp at 5, 117dp at 6 on a 1080p TV). -->
-    <integer name="columns">4</integer>
+    <integer name="columns">5</integer>
 
     <!-- "Default home" tile that opens Android's home-screen picker, for TVs whose settings have one
          (most Android TVs don't; the tile only appears when the page exists). Off by default. -->
@@ -76,12 +78,13 @@
     <!-- Show a wallpaper behind the home screen. false: the plain black background, no pictures at all. -->
     <bool name="use_wallpaper">true</bool>
 
-    <!-- Seconds each wallpaper is on screen before the slow crossfade to the next. Only used when the
-         assets folder holds more than one picture. -->
+    <!-- Seconds each wallpaper is on screen before the slow crossfade to the next. Only used when there
+         is more than one picture. -->
     <integer name="wallpaper_interval_seconds">30</integer>
 
-    <!-- The wallpapers live in launcher/app/src/main/assets/wallpapers/ as wall-01.jpg … wall-10.jpg
-         (tools/set-images.sh puts them there, resized to at most 1920x1080 JPEG). One picture: a still
+    <!-- The pushed theme's pictures in theme/wallpapers/ (w-01.jpg …) are used first; the stock pictures
+         in launcher/app/src/main/assets/wallpapers/ are the fallback. tools/wallpapers.py builds the
+         theme from personal-assets, tools/set-images.sh builds and uploads it. One picture: a still
          wallpaper. Several: they rotate. None: pitch black. -->
 
     <!-- ===== Screensaver ===== -->
@@ -114,14 +117,26 @@
     <!-- Where the message sits horizontally: center, left or right. -->
     <string name="splash_text_align" translatable="false">center</string>
 
-    <!-- The splash picture is launcher/app/src/main/assets/splash/splash.jpg. When it is missing or cannot
-         be decoded the splash is skipped silently. The Android boot logo and boot animation are never
-         touched: that needs root. -->
+    <!-- The splash picture is theme/splash.jpg in the pushed theme, or the stock
+         launcher/app/src/main/assets/splash/splash.jpg. When both are missing or cannot be decoded the
+         splash is skipped silently. The Android boot logo and boot animation are never touched: that
+         needs root. -->
+
+    <!-- ===== Home widgets ===== -->
+
+    <!-- The control pill at the top right: show the time beside the avatar. false: avatar only. -->
+    <bool name="pill_show_time">true</bool>
+
+    <!-- One row of display-only widgets under the top buttons: weather (two cells), RAM and
+         storage. widgets_enabled false hides the whole row; the row keeps its size either way. -->
+    <bool name="widgets_enabled">true</bool>
+    <!-- Today's weather only, from Open-Meteo. Hidden on its own when no coordinates are set. -->
+    <bool name="widget_weather_enabled">true</bool>
+    <!-- A ring gauge of the memory in use (caches count as used) and of the data partition. -->
+    <bool name="widget_ram_enabled">true</bool>
+    <bool name="widget_storage_enabled">true</bool>
 
     <!-- ===== Weather ===== -->
-
-    <!-- Show the weather pill next to Inputs / Wi-Fi / Settings. -->
-    <bool name="weather_enabled">true</bool>
 
     <!-- The pincode the coordinates below were looked up from; kept for reference and not sent anywhere
          at run time. The lookup itself happens once, during setup, with OpenStreetMap Nominatim. -->
