@@ -82,34 +82,40 @@ Launcher
   or package visibility silently hides every app and the grid comes up empty; target a recent SDK, some
   Google TV 14 sets refuse older targets at install.
 - Design, Apple TV 4K style: pitch black background; a dock row at the bottom of the screen inside a
-  slightly lighter rounded band holding the four apps I pick (ask me which, and the order); the rest of
-  the apps in a 4-column grid below that scrolls up when I press Down; one translucent "glass" highlight
+  slightly lighter rounded band holding the five apps I pick (ask me which, and the order); the rest of
+  the apps in a grid below that scrolls up when I press Down; one translucent "glass" highlight
   that springs from tile to tile instead of per-tile borders; the focused tile scales up slightly and
   shows its name underneath; above the dock, the focused dock app's name in large light type with an
-  ambient glow in a colour sampled from its banner; frosted pill buttons top right for Inputs, Wi-Fi
-  (showing the network name) and Settings; a greeting, a large thin clock and the date top left in a
-  downloaded open-licence typeface such as Outfit. Inputs opens a compact glass dropdown under the pill
-  listing the HDMI ports, AV and Live TV, switching via the TV input framework.
-- Personalise it, and ask me before deciding anything:
+  ambient glow in a colour sampled from its banner; one frosted avatar pill at the top right, with my
+  photo or initial and an optional clock, that opens a panel for Inputs, network, Settings and
+  Wallpapers; a greeting, a large thin clock and the date top left in a downloaded open-licence
+  typeface such as Outfit. Inputs opens a compact glass list under the pill listing the HDMI ports, AV
+  and Live TV, switching via the TV input framework. Back closes the panel and returns focus to the
+  pill.
+- Personalise it, and ask me before deciding anything. Every personal question is skippable: an
+  empty name, avatar, splash or wallpaper set falls back to the stock value for that item.
   - my name, for the greeting ("GOOD NIGHT, <NAME>") and for the welcome splash;
-  - my pincode, so the weather widget knows the place. The launcher asks Open-Meteo for the current
-    temperature, weather code and whether it is day; look the coordinates up once (OpenStreetMap
-    Nominatim is fine) and write them into `theme/config.json` next to the pincode. The TV only ever talks
-    to Open-Meteo. Keep the widget hidden while the coordinates are unknown and ask again: after a
-    boot Home starts before the network is up, so the first request fails; retry every few seconds
-    for the first minute, and once more when the network comes up.
+  - an optional avatar photo path, for the top-right pill. Copy it to `theme/avatar.jpg`; without
+    one, show the first letter of my name, and show a person glyph when there is no name either.
+  - my pincode, so the weather widget knows the place. Look the coordinates up once (OpenStreetMap
+    Nominatim is fine) and write `weather_lat` and `weather_lon` into `theme/config.json`. The pincode
+    is used only for that lookup; the launcher never reads or sends it. The launcher asks Open-Meteo
+    for the current temperature, weather code and whether it is day, and only ever talks to
+    Open-Meteo at run time. Keep the widget hidden while the coordinates are unknown and ask again:
+    after a boot Home starts before the network is up, so the first request fails; retry every few
+    seconds for the first minute, and once more when the network comes up.
   - whether the home screen shows a wallpaper behind the tiles, and if so whether several of them
     rotate with a slow crossfade. Put the pictures in `personal-assets/wallpapers/` (git-ignored),
-    make a 320x180 preview and a name/mood for each one, and push the theme folder to the TV (see
-    the theme step below); the APK only ships the stock pictures in `assets/`.
-  - "Show home widgets underneath the pills?" (skippable, on by default): one row with today's
-    weather over two cells and a RAM and a storage ring gauge, aligned to the pills' left and right
-    edges. Ask which ones I want (`widgets_enabled`, `widget_weather_enabled`,
-    `widget_ram_enabled`, `widget_storage_enabled`). Display only: no focus, no key presses, and the
-    dock and the tile grid keep their place.
+    ask for a name and mood for each one, make a 320x180 preview, and push the theme folder to the TV
+    (see the theme step below); the APK only ships the stock pictures in `assets/`.
+  - "Show home widgets under the avatar pill?" (skippable, on by default): one display-only row
+    under the pill's right edge with today's weather over two cells and a RAM and a storage ring
+    gauge. Ask which ones I want (`widgets_enabled`, `widget_weather_enabled`,
+    `widget_ram_enabled`, `widget_storage_enabled`). The row keeps its place, the Now Playing card
+    shares that band, and neither takes focus or key presses.
   - a screensaver that shows those same pictures one after another with the time, the date and a
-    Now Playing line (while music plays) drifting over them every fifteen seconds (a DreamService),
-    and point the TV's screensaver at it over ADB
+    Now Playing line (while music plays) drifting over them on the configured interval (a
+    DreamService), and point the TV's screensaver at it over ADB
     (`settings put secure screensaver_components <package>/.WallpaperDream; settings put secure
     screensaver_enabled 1`). Keep a plain clock screensaver too, let any key end either one, and ask
     me which should be the default.
@@ -125,7 +131,7 @@ Launcher
     own storage, with `SystemClock.elapsedRealtime()` as the fallback when the setting is missing.
     Any remote key skips it.
 - Let me rearrange the grid: hold OK on a tile to pick it up, move it with the D-pad, OK drops it
-  there and Back puts it back. The four dock apps stay where they are. Remember the order in the
+  there and Back puts it back. The five dock apps stay where they are. Remember the order in the
   app's own storage and keep the order of apps that were not moved.
 - Optionally build a small Live TV app next to the launcher, in its own folder with its own APK:
   plain Java, Media3 ExoPlayer, a list of channels grouped by language, and the picture for each
@@ -134,7 +140,8 @@ Launcher
   without it, and the home screen only shows a Live TV tile when the app is installed.
 - Make D-pad navigation deterministic: Up/Down move exactly one row, Up from the dock goes to the top
   bar, the ends of the top bar don't fall through to tiles. Remember the last focused tile.
-- Keep it light: the TV has about 1 GB of RAM. No blur, no video, no network polling.
+- Keep it light: the TV has about 1 GB of RAM. No blur, no video, and no ongoing network polling
+  beyond the cached weather request.
 
 Verify
 - After each change, inject remote key presses over ADB, take a screenshot from the TV and look at it.
@@ -143,14 +150,19 @@ Verify
   re-enable any app and how to change the dock order or the wallpaper.
 
 Personalise
-- Ask me for my name, pincode, avatar, wallpapers and splash picture, and ask for a name and mood for
-  each wallpaper. Build the portable theme folder with `tools/wallpapers.py`: `theme/config.json`,
-  optional `theme/avatar.jpg` and `theme/splash.jpg`, `theme/wallpapers/w-01.jpg`, 320x180
-  `theme/thumbs/t-01.jpg` and `theme/wallpapers.json`.
+- Ask me, one question at a time, for: my name; an optional avatar photo path; my pincode; my
+  wallpapers, with a name and mood for each one; my splash picture; and the fifth dock app (or all
+  five apps and their order). Every step is skippable, and an empty answer keeps the stock value.
+- Build the portable theme folder with `tools/wallpapers.py`: `theme/config.json`, optional
+  `theme/avatar.jpg` and `theme/splash.jpg`, `theme/wallpapers/w-01.jpg`, 320x180
+  `theme/thumbs/t-01.jpg` and `theme/wallpapers.json`. Put the fifth package in `dock_apps` in
+  `theme/config.json`; the default list names four apps and leaves the fifth slot to the next app
+  in grid order.
 - Write the personal answers into `personal-assets/theme/config.json` (git-ignored), not into
   `launcher/.../values/config.xml`, the code or the README. Push the folder with
   `tools/theme_push.py` or `tools/theme.sh`; the launcher reads it from its own external files
-  directory and needs no storage permission.
+  directory at `/sdcard/Android/data/com.gathin.tvhome/files/theme/` and needs no storage
+  permission.
 - Keep personal pictures and the theme out of the APK: build the release and check that no personal
   file or hash is inside it. Re-push `personal-assets/theme` after every install, and tell me that
   uninstalling `com.gathin.tvhome` deletes the pushed data.
@@ -159,6 +171,7 @@ Personalise
 
 ---
 
-Expect to answer three or four checklist questions (which apps you use, which four go in the dock,
+Expect to answer four or five checklist questions (which apps you use, which five go in the dock,
 whether to keep the voice assistant, Chromecast and firmware updates), plus what the home screen
-should call you and which pincode the weather is for. Everything is reversible.
+should call you, which pincode the weather is for, and which pictures and avatar to use. Everything
+is reversible.
