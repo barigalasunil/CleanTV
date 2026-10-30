@@ -70,6 +70,8 @@ final class Config {
     final double weatherLat;
     /** Longitude of the place the weather is for, or NaN when it is not known. */
     final double weatherLon;
+    /** Whether the avatar pill shows the time beside the avatar. */
+    final boolean pillShowTime;
     /** Whether the optional Live TV app is wanted. */
     final boolean liveTvEnabled;
     /** The package of that app, pinned as the first tile of the grid; empty when it is not wanted. */
@@ -87,7 +89,7 @@ final class Config {
                    boolean splashEnabled, String splashMessage, int splashDurationMs,
                    int splashTextBottomPercent, String splashTextAlign,
                    boolean widgetsEnabled, boolean widgetWeather, boolean widgetRam, boolean widgetStorage,
-                   double weatherLat, double weatherLon,
+                   double weatherLat, double weatherLon, boolean pillShowTime,
                    boolean liveTvEnabled, String liveTvAppPackage, List<String> liveTvLanguages) {
         this.dockApps = Collections.unmodifiableList(dockApps);
         this.hiddenApps = Collections.unmodifiableList(hiddenApps);
@@ -120,6 +122,7 @@ final class Config {
         this.widgetStorage = widgetStorage;
         this.weatherLat = weatherLat;
         this.weatherLon = weatherLon;
+        this.pillShowTime = pillShowTime;
         this.liveTvEnabled = liveTvEnabled;
         this.liveTvAppPackage = liveTvEnabled ? liveTvAppPackage : "";
         this.liveTvLanguages = Collections.unmodifiableList(liveTvLanguages);
@@ -164,6 +167,7 @@ final class Config {
         boolean widgetStorage = res.getBoolean(R.bool.widget_storage_enabled);
         double weatherLat = number(res.getString(R.string.weather_lat));
         double weatherLon = number(res.getString(R.string.weather_lon));
+        boolean pillShowTime = res.getBoolean(R.bool.pill_show_time);
         boolean liveTvEnabled = res.getBoolean(R.bool.live_tv_enabled);
         String liveTvApp = res.getString(R.string.live_tv_app_package).trim();
         List<String> liveTvLanguages = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.live_tv_languages)));
@@ -201,6 +205,7 @@ final class Config {
             widgetStorage = bool(json, "widget_storage_enabled", widgetStorage);
             weatherLat = coordinate(json, "weather_lat", weatherLat);
             weatherLon = coordinate(json, "weather_lon", weatherLon);
+            pillShowTime = bool(json, "pill_show_time", pillShowTime);
             liveTvEnabled = bool(json, "live_tv_enabled", liveTvEnabled);
             liveTvApp = string(json, "live_tv_app_package", liveTvApp);
             liveTvLanguages = stringList(json, "live_tv_languages", liveTvLanguages);
@@ -213,7 +218,7 @@ final class Config {
                 splashEnabled, splashMessage, splashDuration,
                 clamp(splashBottom, 0, 60), align(splashAlign),
                 widgetsEnabled, widgetWeather, widgetRam, widgetStorage, weatherLat, weatherLon,
-                liveTvEnabled, liveTvApp, liveTvLanguages);
+                pillShowTime, liveTvEnabled, liveTvApp, liveTvLanguages);
     }
 
     /** The splash message alignment, always one of the three the layout understands. */

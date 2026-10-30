@@ -44,7 +44,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
-                android:layout_toStartOf="@+id/topButtons"
+                android:layout_toStartOf="@+id/controlPill"
                 android:layout_marginEnd="16dp"
                 android:orientation="vertical">
 
@@ -147,43 +147,77 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Inputs, Wi-Fi and Settings, right aligned under the greeting's baseline. -->
             <LinearLayout
-                android:id="@+id/topButtons"
+                android:id="@+id/controlPill"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="46dp"
                 android:layout_alignParentEnd="true"
                 android:layout_alignBottom="@id/leftBlock"
                 android:layout_marginBottom="6dp"
-                android:orientation="horizontal">
+                android:paddingStart="8dp"
+                android:paddingEnd="15dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:background="@drawable/pill_bg"
+                android:focusable="true"
+                android:clickable="true"
+                android:nextFocusDown="@+id/grid">
 
-                <TextView
-                    android:id="@+id/btnInputs"
-                    style="@style/TopButton"
-                    android:text="@string/inputs"
-                    android:drawableStart="@drawable/ic_input"
-                    android:nextFocusRight="@+id/btnWifi"
-                    android:nextFocusDown="@+id/grid" />
+                <FrameLayout
+                    android:id="@+id/avatarFrame"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/avatar_circle"
+                    android:clipToOutline="true">
 
-                <TextView
-                    android:id="@+id/btnWifi"
-                    style="@style/TopButton"
-                    android:maxWidth="180dp"
-                    android:singleLine="true"
-                    android:ellipsize="end"
-                    android:text="@string/wifi"
-                    android:drawableStart="@drawable/ic_wifi"
-                    android:nextFocusLeft="@+id/btnInputs"
-                    android:nextFocusRight="@+id/btnSettings"
-                    android:nextFocusDown="@+id/grid" />
+                    <ImageView
+                        android:id="@+id/avatar"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="@string/avatar"
+                        android:visibility="gone" />
 
-                <TextView
-                    android:id="@+id/btnSettings"
-                    style="@style/TopButton"
-                    android:text="@string/settings"
-                    android:drawableStart="@drawable/ic_settings"
-                    android:nextFocusLeft="@+id/btnWifi"
-                    android:nextFocusDown="@+id/grid" />
+                    <ImageView
+                        android:id="@+id/avatarPlaceholder"
+                        android:layout_width="19dp"
+                        android:layout_height="19dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_avatar"
+                        android:tint="#FFFFFFFF"
+                        android:contentDescription="@null" />
+
+                    <!-- Without a photo: the first letter of the greeting name on the tinted circle. -->
+                    <TextView
+                        android:id="@+id/avatarInitial"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:textColor="@drawable/pill_text"
+                        android:duplicateParentState="true"
+                        android:textSize="15sp"
+                        android:fontFamily="@font/outfit"
+                        android:fontVariationSettings="'wght' 500"
+                        android:includeFontPadding="false"
+                        android:visibility="gone"
+                        android:contentDescription="@string/avatar" />
+                </FrameLayout>
+
+                <TextClock
+                    android:id="@+id/pillTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="9dp"
+                    android:format12Hour="h:mm"
+                    android:format24Hour="HH:mm"
+                    android:textColor="@drawable/pill_text"
+                    android:duplicateParentState="true"
+                    android:textSize="16sp"
+                    android:fontFamily="@font/outfit"
+                    android:fontVariationSettings="'wght' 500"
+                    android:letterSpacing="0.01"
+                    android:includeFontPadding="false"
+                    android:singleLine="true" />
             </LinearLayout>
 
             <!-- Now Playing: under the clock, as tall as a widget cell. Sized in Widgets.java. -->
@@ -192,7 +226,7 @@
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 android:layout_alignParentStart="true"
-                android:layout_below="@id/topButtons"
+                android:layout_below="@id/controlPill"
                 android:layout_marginTop="6dp"
                 android:orientation="vertical"
                 android:padding="10dp"
@@ -297,7 +331,7 @@
                                 android:focusable="true"
                                 android:clickable="true"
                                 android:nextFocusRight="@+id/nowPlay"
-                                android:nextFocusUp="@+id/btnSettings"
+                                android:nextFocusUp="@+id/controlPill"
                                 android:nextFocusDown="@+id/grid" />
 
                             <ImageButton
@@ -315,7 +349,7 @@
                                 android:clickable="true"
                                 android:nextFocusLeft="@+id/nowPrevious"
                                 android:nextFocusRight="@+id/nowNext"
-                                android:nextFocusUp="@+id/btnSettings"
+                                android:nextFocusUp="@+id/controlPill"
                                 android:nextFocusDown="@+id/grid" />
 
                             <ImageButton
@@ -332,7 +366,7 @@
                                 android:focusable="true"
                                 android:clickable="true"
                                 android:nextFocusLeft="@+id/nowPlay"
-                                android:nextFocusUp="@+id/btnSettings"
+                                android:nextFocusUp="@+id/controlPill"
                                 android:nextFocusDown="@+id/grid" />
                         </LinearLayout>
                     </LinearLayout>
@@ -346,7 +380,7 @@
                 android:layout_height="wrap_content"
                 android:minHeight="81dp"
                 android:layout_alignParentEnd="true"
-                android:layout_below="@id/topButtons"
+                android:layout_below="@id/controlPill"
                 android:layout_marginTop="6dp"
                 android:orientation="horizontal"
                 android:focusable="false"

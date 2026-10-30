@@ -12,9 +12,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * One row of display-only widgets under the top buttons: today's weather over two cells, then a RAM
- * and a storage ring gauge. The row is anchored to the pill row, so its left and right edges are the
- * pills' edges, and each cell is square with the same gap the pills use.
+ * One row of display-only widgets under the control pill: today's weather over two cells, then a RAM
+ * and a storage ring gauge. The row hangs from the pill's right edge and keeps the cell size it had
+ * under the old pill row, so four 81 dp cells and three 10 dp gaps fit from that edge leftwards.
  *
  * <p>Nothing here takes focus or a key, holds a wake lock or runs in the background: the values are
  * read on the home screen's own ticker, so they stop the moment another app is in front.
@@ -32,6 +32,11 @@ final class Widgets {
     private final LinearLayout row;
     private final View pillRow;
     private final float density;
+    /** The cell size the row had under the old pill row, and the gap between two cells. */
+    private static final float CELL_DP = 81f;
+    private static final float GAP_DP = 10f;
+    private static final float BAND_DP = 4 * CELL_DP + 3 * GAP_DP;
+
     private final Typeface face;
     private final int gap;
     private final int radiusDp;
@@ -58,7 +63,7 @@ final class Widgets {
         this.pillRow = pillRow;
         this.density = density;
         this.face = outfit(activity);
-        this.gap = px(10);
+        this.gap = px(GAP_DP);
         this.radiusDp = px(1);
     }
 
@@ -99,23 +104,27 @@ final class Widgets {
             row.addView(storageCell, new LinearLayout.LayoutParams(0, 0));
         }
 
-        pillRow.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> layoutCells(innerWidth()));
-        pillRow.post(() -> layoutCells(innerWidth()));
+        // The band no longer measures the pill (a single avatar is far narrower than the old row):
+        // it keeps its old cell size and hangs from the pill's right edge instead. The width is a
+        // constant, so the cells are sized now as well: the row is never measured 0 px wide while
+        // waiting for the first layout pass.
+        layoutCells(bandWidth());
+        sizeNowPlaying();
+        pillRow.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> sizeNowPlaying());
+        pillRow.post(() -> {
+            layoutCells(bandWidth());
+            sizeNowPlaying();
+        });
         updateRam();
         updateStorage();
     }
 
     /**
-     * Four cell widths and two gaps fill the pill row exactly: the weather takes two cells, RAM and
-     * storage one each. A hidden widget keeps the others at this size, still right aligned.
+     * Four cell widths and two gaps fill the band: the weather takes two cells, RAM and storage one
+     * each. A hidden widget keeps the others at this size, still right aligned.
      */
-    /** The pills' own left and right edges, without the first pill's start margin. */
-    private int innerWidth() {
-        if (!(pillRow instanceof ViewGroup)) return pillRow.getWidth();
-        ViewGroup group = (ViewGroup) pillRow;
-        int count = group.getChildCount();
-        if (count == 0) return pillRow.getWidth();
-        return Math.max(0, group.getChildAt(count - 1).getRight() - group.getChildAt(0).getLeft());
+    private int bandWidth() {
+        return px(BAND_DP);
     }
 
     private void layoutCells(int width) {
@@ -154,12 +163,14 @@ final class Widgets {
         nowPlaying.setBackground(glass(Math.round(cell / 6f)));
     }
 
-    /** Where the pills start, in the widget row's own parent. */
+    /** Where the band starts, in the widget row's own parent: the pill's right edge minus its width. */
     private int innerLeft() {
-        if (!(pillRow instanceof ViewGroup)) return pillRow.getLeft();
-        ViewGroup group = (ViewGroup) pillRow;
-        if (group.getChildCount() == 0) return pillRow.getLeft();
-        return pillRow.getLeft() + group.getChildAt(0).getLeft();
+        int right = pillRow.getRight();
+        if (right <= 0) {
+            View parent = (View) pillRow.getParent();
+            right = parent == null ? pillRow.getWidth() : parent.getWidth();
+        }
+        return Math.max(0, right - bandWidth());
     }
 
     private void size(View view, int width, int height, int radius, int marginEnd) {

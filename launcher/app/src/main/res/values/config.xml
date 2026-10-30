@@ -124,6 +124,9 @@
 
     <!-- ===== Home widgets ===== -->
 
+    <!-- The control pill at the top right: show the time beside the avatar. false: avatar only. -->
+    <bool name="pill_show_time">true</bool>
+
     <!-- One row of display-only widgets under the top buttons: weather (two cells), RAM and
          storage. widgets_enabled false hides the whole row; the row keeps its size either way. -->
     <bool name="widgets_enabled">true</bool>

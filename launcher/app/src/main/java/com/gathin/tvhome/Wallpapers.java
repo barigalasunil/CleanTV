@@ -147,13 +147,19 @@ final class Wallpapers {
         handler.postDelayed(this::next, Math.max(1000L, nextAt - now));
     }
 
-    /** Shows the owner's picked picture now, without waiting for the next turn. */
     boolean showSelected() {
         int picked = selectedIndex();
         if (picked < 0) return false;
+        handler.removeCallbacksAndMessages(null);
         index = picked;
         show(index, true);
         return true;
+    }
+
+    void followClock(int seconds) {
+        handler.removeCallbacksAndMessages(null);
+        stopped = false;
+        start(seconds);
     }
 
     /** Told when a new picture is on screen. */

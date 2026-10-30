@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
@@ -31,9 +32,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.TextPaint;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -92,14 +90,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private int ambientColor;
     private boolean heroShown;
     private TextView greeting;
-    private TextView btnInputs;
-    private TextView btnWifi;
-    private TextView btnSettings;
+    private View controlPill;
+    private TextView pillTime;
+    private ImageView avatar;
+    private ImageView avatarPlaceholder;
+    private TextView avatarInitial;
     private TextView clock;
     private TextView ampm;
     private TextView date;
     private View pillRow;
     private TextView shamsiDate;
+    private boolean inputsAvailable;
+    private String wifiLabel = "";
+    private int wifiIcon = R.drawable.ic_wifi;
+    private int wallpaperIntervalSeconds;
+    private Bitmap avatarBitmap;
     private boolean shamsi;
     private String vpnApp;
     /** The name in the greeting, empty when there is none. */
@@ -291,12 +296,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         ambient.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
                 ambientGlow.setGradientRadius((r - l) * 0.62f));
         greeting = findViewById(R.id.greeting);
-        btnWifi = findViewById(R.id.btnWifi);
+        controlPill = findViewById(R.id.controlPill);
+        pillTime = findViewById(R.id.pillTime);
+        avatar = findViewById(R.id.avatar);
+        avatarPlaceholder = findViewById(R.id.avatarPlaceholder);
+        avatarInitial = findViewById(R.id.avatarInitial);
         shamsiDate = findViewById(R.id.shamsiDate);
         clock = findViewById(R.id.clock);
         ampm = findViewById(R.id.ampm);
         date = findViewById(R.id.date);
-        pillRow = findViewById(R.id.topButtons);
+        pillRow = controlPill;
+        wallpaperIntervalSeconds = cfg.wallpaperIntervalSeconds;
         shamsi = cfg.shamsiDate;
         if (shamsi) {
             shamsiDate.setVisibility(View.VISIBLE);
@@ -309,6 +319,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         trackContrast(date);
         trackContrast(greeting);
         trackContrast(shamsiDate);
+        if (!cfg.pillShowTime) pillTime.setVisibility(View.GONE);
+        loadAvatar();
+        // Opened on the next frame: a panel created inside the key event that opened it can receive
+        // the matching key-up and activate its first row straight away.
+        controlPill.setOnClickListener(v -> controlPill.post(this::showControlPanel));
         // The views are only placed after this, so the wallpaper is read again once they are.
         root.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> updateContrast());
         vpnApp = cfg.vpnApp;
@@ -372,8 +387,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             Motion.spring(s);
         }
 
-        btnInputs = findViewById(R.id.btnInputs);
-        btnSettings = findViewById(R.id.btnSettings);
         nowPlayingView = findViewById(R.id.nowPlayingCard);
         nowPlayingCard = new NowPlayingCard(this, this::updateContentRow);
         moveHint = findViewById(R.id.moveHint);
@@ -386,34 +399,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (last != null) widgets.setWeather(last);
         if (widgetWeatherEnabled && (last == null || last.stale())) refreshWeather();
 
-        btnInputs.setOnClickListener(v -> showInputs());
-        btnWifi.setOnClickListener(v -> openNetworkPill());
-        btnWifi.setOnLongClickListener(v -> {
-            open(new Intent(Settings.ACTION_WIFI_SETTINGS));
-            return true;
-        });
-        btnSettings.setOnClickListener(v -> open(new Intent(Settings.ACTION_SETTINGS)));
-        btnSettings.setOnLongClickListener(v -> {
-            if (!moduleCards) return false;   // off: a long press does nothing, as before the feature
-            showModuleCards();
-            return true;
-        });
-
         updateContentRow();
 
-        // Keep focus on the top bar at its ends and at the top: Android's focus finder would otherwise
-        // jump to a tile far below when there is nothing in that direction.
-        View.OnKeyListener pillKeys = (v, keyCode, event) -> {
+        controlPill.setOnKeyListener((v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
-            int id = v.getId();
-            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return id == R.id.btnInputs;
-            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) return id == R.id.btnSettings;
-            return false;
-        };
-        for (TextView pill : new TextView[]{btnInputs, btnWifi, btnSettings}) {
-            pill.setOnKeyListener(pillKeys);
-        }
+            return keyCode == KeyEvent.KEYCODE_DPAD_UP
+                    || keyCode == KeyEvent.KEYCODE_DPAD_LEFT
+                    || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT;
+        });
 
         // Hide the glass when focus leaves the tiles.
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
@@ -482,9 +475,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void updateContentNavigation() {
         boolean media = nowPlayingView.getVisibility() == View.VISIBLE;
         int down = media ? R.id.nowPrevious : R.id.grid;
-        btnInputs.setNextFocusDownId(down);
-        btnWifi.setNextFocusDownId(down);
-        btnSettings.setNextFocusDownId(down);
+        controlPill.setNextFocusDownId(down);
         grid.setNextFocusUpId(media ? R.id.nowPrevious : View.NO_ID);
     }
 
@@ -594,12 +585,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 new int[]{}};
         android.content.res.ColorStateList cs = new android.content.res.ColorStateList(states,
                 new int[]{0xFF111111, light});
-        for (TextView v : new TextView[]{btnInputs, btnWifi, btnSettings}) {
-            if (v == null) continue;
-            v.setTextColor(cs);
-            v.setCompoundDrawableTintList(cs);
-            v.setShadowLayer(3 * density, 0, 1 * density, shadow);
+        if (pillTime != null) {
+            pillTime.setTextColor(cs);
+            pillTime.setShadowLayer(3 * density, 0, 1 * density, shadow);
         }
+        // The initial and the person glyph follow the same two colours; their unfocused colour is
+        // opaque, so neither fades into the frosted pill.
+        if (avatarInitial != null) {
+            avatarInitial.setTextColor(cs);
+            avatarInitial.setShadowLayer(3 * density, 0, 1 * density, shadow);
+        }
+        if (avatarPlaceholder != null) avatarPlaceholder.setImageTintList(cs);
     }
 
     @Override
@@ -709,6 +705,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onDestroy() {
         super.onDestroy();
         if (wallpapers != null) wallpapers.stop();
+        if (avatarBitmap != null && !avatarBitmap.isRecycled()) avatarBitmap.recycle();
+        avatarBitmap = null;
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim != null) tim.unregisterCallback(inputCallback);
@@ -716,6 +714,22 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             cm.unregisterNetworkCallback(networkCallback);
             cm.unregisterNetworkCallback(vpnCallback);
         }
+    }
+
+    /**
+     * The remote's own Input key opens the same list the control panel's Inputs row does, so a TV
+     * whose Input button has no other handler still reaches the HDMI ports from Home.
+     */
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_TV_INPUT && event.getRepeatCount() == 0) {
+            updateInputsButton();
+            if (inputsAvailable) {
+                showInputs(controlPill);
+                return true;
+            }
+        }
+        return super.onKeyDown(keyCode, event);
     }
 
     @Override
@@ -1044,7 +1058,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void focusTile(int position) {
         if (adapter.getItemCount() == 0) {
-            btnWifi.requestFocus();
+            controlPill.requestFocus();
             return;
         }
         final int pos = Math.max(0, Math.min(position, adapter.getItemCount() - 1));
@@ -1072,6 +1086,126 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     // ---- top bar ---------------------------------------------------------------------------------
 
+    /**
+     * The pill's circle: the photo from the pushed theme, else the greeting name's first letter on
+     * the tinted circle, else a person glyph. The photo is decoded at 128 px, not at screen size.
+     */
+    private void loadAvatar() {
+        Bitmap bitmap = Theme.decode(Theme.avatar(this), (int) (128 * density), (int) (128 * density));
+        if (bitmap != null) {
+            avatarBitmap = bitmap;
+            avatar.setImageBitmap(bitmap);
+            avatar.setVisibility(View.VISIBLE);
+            avatarPlaceholder.setVisibility(View.GONE);
+            avatarInitial.setVisibility(View.GONE);
+            return;
+        }
+        String name = greetingName.trim();
+        if (name.isEmpty()) return;
+        int first = name.codePointAt(0);
+        avatarInitial.setText(new String(Character.toChars(first)).toUpperCase(Locale.getDefault()));
+        avatarInitial.setVisibility(View.VISIBLE);
+        avatarPlaceholder.setVisibility(View.GONE);
+    }
+
+    private void showControlPanel() {
+        updateWifiLabel();
+        View panel = getLayoutInflater().inflate(R.layout.popup_control, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        final PopupWindow popup = glassPopup(panel, (int) (330 * density));
+
+        if (inputsAvailable) {
+            addControlRow(rows, popup, R.drawable.ic_input, getString(R.string.inputs), null,
+                    () -> showInputs(controlPill), null);
+        }
+        addControlRow(rows, popup, wifiIcon, getString(R.string.wifi), wifiLabel,
+                this::openNetworkPill, () -> open(new Intent(Settings.ACTION_WIFI_SETTINGS)));
+        addControlRow(rows, popup, R.drawable.ic_settings, getString(R.string.settings), null,
+                () -> open(new Intent(Settings.ACTION_SETTINGS)), moduleCards ? this::showModuleCards : null);
+        addControlRow(rows, popup, R.drawable.ic_wallpaper, getString(R.string.wallpapers), null,
+                this::showWallpaperPicker, null);
+
+        dropIn(popup, panel, controlPill, Gravity.END);
+        rows.getChildAt(0).requestFocus();
+    }
+
+    private void addControlRow(LinearLayout rows, PopupWindow popup, int iconRes, String title, String subtitle,
+                               Runnable action, Runnable longAction) {
+        View row = getLayoutInflater().inflate(R.layout.item_control, rows, false);
+        ((ImageView) row.findViewById(R.id.icon)).setImageResource(iconRes);
+        ((TextView) row.findViewById(R.id.title)).setText(title);
+        TextView sub = row.findViewById(R.id.subtitle);
+        if (TextUtils.isEmpty(subtitle)) sub.setVisibility(View.GONE);
+        else sub.setText(subtitle);
+        row.setOnClickListener(v -> closePopup(popup, action));
+        if (longAction != null) {
+            row.setOnLongClickListener(v -> {
+                closePopup(popup, longAction);
+                return true;
+            });
+        }
+        backClosesMenu(row, popup);
+        rows.addView(row);
+    }
+
+    private void showWallpaperPicker() {
+        List<Theme.Wallpaper> pictures = Theme.wallpapers(this);
+        if (pictures.isEmpty()) {
+            Toast.makeText(this, R.string.no_wallpapers, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        View panel = getLayoutInflater().inflate(R.layout.popup_wallpapers, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        final PopupWindow popup = glassPopup(panel, (int) (430 * density));
+        String selected = Wallpapers.selected(this);
+
+        addWallpaperRow(rows, popup, null, getString(R.string.wallpapers_auto), "", selected == null, () -> {
+            Wallpapers.select(this, null);
+            wallpapers.followClock(wallpaperIntervalSeconds);
+        });
+        for (Theme.Wallpaper picture : pictures) {
+            addWallpaperRow(rows, popup, picture.thumb != null ? picture.thumb : picture.file,
+                    picture.name, picture.mood, picture.key().equals(selected), () -> {
+                        Wallpapers.select(this, picture.key());
+                        wallpapers.showSelected();
+                        Toast.makeText(this, getString(R.string.wallpaper_selected, picture.name),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        }
+
+        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        int[] at = new int[2];
+        controlPill.getLocationInWindow(at);
+        int room = root.getHeight() - (at[1] + controlPill.getHeight()) - (int) (34 * density);
+        popup.setHeight(Math.min(panel.getMeasuredHeight(), Math.max(room, (int) (160 * density))));
+        dropIn(popup, panel, controlPill, Gravity.END);
+        rows.getChildAt(0).requestFocus();
+    }
+
+    private void addWallpaperRow(LinearLayout rows, PopupWindow popup, java.io.File thumb, String title,
+                                 String mood, boolean selected, Runnable action) {
+        View row = getLayoutInflater().inflate(R.layout.item_wallpaper, rows, false);
+        ImageView image = row.findViewById(R.id.thumb);
+        if (thumb == null) {
+            image.setImageResource(R.drawable.ic_wallpaper);
+            image.setScaleType(ImageView.ScaleType.CENTER);
+            image.setPadding((int) (42 * density), (int) (24 * density),
+                    (int) (42 * density), (int) (24 * density));
+            image.setImageTintList(android.content.res.ColorStateList.valueOf(0xD9FFFFFF));
+        } else {
+            Bitmap bitmap = Theme.decode(thumb, (int) (320 * density), (int) (180 * density));
+            if (bitmap != null) image.setImageBitmap(bitmap);
+        }
+        ((TextView) row.findViewById(R.id.title)).setText(title);
+        TextView moodView = row.findViewById(R.id.mood);
+        if (mood.isEmpty()) moodView.setVisibility(View.GONE);
+        else moodView.setText(mood);
+        row.findViewById(R.id.check).setVisibility(selected ? View.VISIBLE : View.GONE);
+        row.setOnClickListener(v -> closePopup(popup, action));
+        backClosesMenu(row, popup);
+        rows.addView(row);
+    }
+
     private void updateGreeting() {
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         int res;
@@ -1086,7 +1220,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (shamsi) shamsiDate.setText(Shamsi.today());
     }
 
-    /** Shows the Wi-Fi network name on the button when we can read it, otherwise the connection type. */
     private void updateWifiLabel() {
         String text = getString(R.string.wifi);
         boolean vpn = false, online = false;
@@ -1094,7 +1227,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         try {
             ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
             boolean wifi = false, ethernet = false;
-            // All networks, not just the active one: with a VPN up the active network is the VPN itself.
             for (Network net : cm != null ? cm.getAllNetworks() : new Network[0]) {
                 NetworkCapabilities caps = cm.getNetworkCapabilities(net);
                 if (caps == null) continue;
@@ -1124,26 +1256,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         } catch (Exception ignored) {
         }
-        // With a VPN app configured, a VPN that is down matters too: show a red "VPN off" capsule then.
         boolean vpnDown = !vpn && online && !vpnApp.isEmpty();
-        if (vpn || vpnDown) {
-            // Network name, then the green lock-and-VPN (or red "VPN off") capsule drawn in place of the word.
-            String badge = getString(vpn ? R.string.vpn : R.string.vpn_off);
-            VpnBadge span = new VpnBadge(vpn ? getDrawable(R.drawable.ic_lock) : null, density);
-            // The pill has a maximum width and ellipsizes at the end, which would cut the badge off after
-            // a long network name, so shorten the name to whatever room the badge leaves. The total paddings
-            // include the Wi-Fi icon.
-            TextPaint paint = btnWifi.getPaint();
-            float room = btnWifi.getMaxWidth() - btnWifi.getTotalPaddingStart() - btnWifi.getTotalPaddingEnd()
-                    - span.getSize(paint, badge, 0, badge.length(), null) - paint.measureText(" ") - 2 * density;
-            text = TextUtils.ellipsize(text, paint, Math.max(0, room), TextUtils.TruncateAt.END).toString();
-            SpannableString label = new SpannableString(text + " " + badge);
-            label.setSpan(span, text.length() + 1, label.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            btnWifi.setText(label);
-        } else {
-            btnWifi.setText(text);
-        }
-        btnWifi.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0);
+        if (vpn) text += " · " + getString(R.string.vpn);
+        else if (vpnDown) text += " · " + getString(R.string.vpn_off);
+        wifiLabel = text;
+        wifiIcon = icon;
     }
 
     /** The network pill opens the VPN app when one is configured and installed, otherwise Wi-Fi settings. */
@@ -1153,7 +1270,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         open(i != null ? i : new Intent(Settings.ACTION_WIFI_SETTINGS));
     }
 
-    /** Hides the Inputs pill when it would have nothing to list: streaming boxes have no HDMI-in, AV or tuner. */
     private void updateInputsButton() {
         boolean any = liveTvIntent() != null || !sourcePanelService.isEmpty();
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
@@ -1165,7 +1281,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 }
             }
         }
-        btnInputs.setVisibility(any ? View.VISIBLE : View.GONE);
+        inputsAvailable = any;
     }
 
     /** The Live TV app's launch intent: its leanback entry point, or the configured action if it has none. */
@@ -1217,9 +1333,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         open(new Intent(inputAction).setDataAndType(uri, "vnd.android.cursor.item/channel"));
     }
 
-    /** Dropdown menu under the Inputs pill: HDMI ports (with connection state), AV and Live TV. */
-    private void showInputs() {
-        View anchor = findViewById(R.id.btnInputs);
+    private void showInputs(View anchor) {
         View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
 
@@ -1322,15 +1436,20 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         });
     }
 
-    /** Back leaves a menu the same way a row does, instead of the popup vanishing. */
+    /** Back leaves a menu the same way a row does, then puts focus back on the control pill. */
     private void backClosesMenu(View row, PopupWindow popup) {
         row.setOnKeyListener((v, keyCode, event) -> {
             if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
-                closePopup(popup);
+                closePopup(popup, this::focusPill);
                 return true;
             }
             return false;
         });
+    }
+
+    /** The control pill is where every menu started, so closing one returns there. */
+    private void focusPill() {
+        controlPill.post(() -> controlPill.requestFocus());
     }
 
     private PopupWindow glassPopup(View panel, int width) {
@@ -1487,7 +1606,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void showModuleCardsNow() {
-        View anchor = findViewById(R.id.btnSettings);
+        View anchor = controlPill;
         View panel = getLayoutInflater().inflate(R.layout.popup_cards, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
         final PopupWindow popup = glassPopup(panel, (int) (400 * density));
